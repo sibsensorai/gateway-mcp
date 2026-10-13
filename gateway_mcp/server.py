@@ -31,6 +31,7 @@ from gateway_mcp.tools.notifications import register_notification_tools
 from gateway_mcp.tools.privacy import register_privacy_tools
 from gateway_mcp.tools.process import register_process_tools
 from gateway_mcp.tools.router import register_router_tools
+from gateway_mcp.tools.skills import register_skill_tools
 from gateway_mcp.tools.telemetry import register_telemetry_tools
 from gateway_mcp.tools.work import register_work_tools
 
@@ -68,6 +69,7 @@ def create_mcp():
     register_work_tools(server)
     register_telemetry_tools(server)
     register_discovery_tools(server)
+    register_skill_tools(server)
     register_access_tools(server)
     register_access_request_tools(server)
     register_approval_tools(server)

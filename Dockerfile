@@ -15,7 +15,7 @@ RUN apt-get update \
 COPY pyproject.toml README.md MANIFEST.in ./
 COPY gateway*.py ./
 COPY gateway_mcp ./gateway_mcp
-COPY gateway-tools.json gateway-policy.json gateway-company-indexes.json gateway-factory-projects.json ./
+COPY gateway-tools.json gateway-policy.json gateway-company-indexes.json gateway-factory-projects.json company-skills.json ./
 COPY migrations ./migrations
 
 RUN pip install --no-cache-dir .
