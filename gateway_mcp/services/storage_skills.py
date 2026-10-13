@@ -4,6 +4,7 @@ The catalog lives in the `company_skills` table so skills can be published and
 updated at runtime (no image rebuild). Reads back dict rows.
 """
 
+import json
 from typing import Any
 
 from gateway_mcp.services.storage_core import _connect, ensure_schema, postgres_enabled
@@ -103,3 +104,61 @@ def seed_if_empty(skills: list[dict[str, Any]], updated_by: str = "seed") -> int
             )
             inserted += 1
     return inserted
+
+
+# --- Агенты компании (именованные наборы навыков) ---
+
+def list_agents() -> list[dict[str, Any]]:
+    ensure_schema()
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("select slug, title, description, department, skills from company_agents order by slug")
+        return [dict(r) for r in cur.fetchall()]
+
+
+def get_agent(slug: str) -> dict[str, Any] | None:
+    ensure_schema()
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            "select slug, title, description, department, skills, updated_by, updated_at "
+            "from company_agents where lower(slug) = lower(%s)",
+            (slug,),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def upsert_agent(
+    *,
+    slug: str,
+    title: str,
+    description: str,
+    department: str,
+    skills: list[str],
+    updated_by: str,
+) -> dict[str, Any]:
+    ensure_schema()
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            insert into company_agents
+                (slug, title, description, department, skills, updated_by, updated_at)
+            values (%s, %s, %s, %s, %s::jsonb, %s, now())
+            on conflict (slug) do update set
+                title = excluded.title,
+                description = excluded.description,
+                department = excluded.department,
+                skills = excluded.skills,
+                updated_by = excluded.updated_by,
+                updated_at = now()
+            returning slug, title, description, department, skills, updated_by, updated_at
+            """,
+            (slug, title, description, department, json.dumps(list(skills or []), ensure_ascii=False), updated_by),
+        )
+        return dict(cur.fetchone())
+
+
+def delete_agent(slug: str) -> bool:
+    ensure_schema()
+    with _connect() as conn, conn.cursor() as cur:
+        cur.execute("delete from company_agents where lower(slug) = lower(%s)", (slug,))
+        return cur.rowcount > 0

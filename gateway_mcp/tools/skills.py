@@ -212,3 +212,126 @@ def register_skill_tools(mcp):
         except Exception as exc:
             run.error(exc)
             raise
+
+    @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Agents List", readOnlyHint=True))
+    async def gateway_company_agents_list(query: str = "") -> str:
+        """Список агентов компании (именованных наборов навыков), доступных из ядра. Агент объединяет несколько навыков под одной ролью/задачей. Необязательный query фильтрует по тексту."""
+        tool = "gateway_company_agents_list"
+        scope = "skills:read"
+        run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={"query": query})
+        try:
+            run.require_scope()
+            agents = storage_skills.list_agents() if storage_skills.postgres_enabled() else []
+            if query.strip():
+                agents = _match(agents, query)
+            run.finish()
+            return json.dumps({"ok": True, "count": len(agents), "agents": agents}, ensure_ascii=False, indent=2, default=str)
+        except PermissionError as exc:
+            run.denied(exc)
+            raise
+        except Exception as exc:
+            run.error(exc)
+            raise
+
+    @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Agent Get", readOnlyHint=True))
+    async def gateway_company_agent_get(slug: str) -> str:
+        """Загрузи агента компании по имени: его описание и ПОЛНЫЕ инструкции всех входящих навыков. Следуй им, чтобы выступать в роли этого агента."""
+        tool = "gateway_company_agent_get"
+        scope = "skills:read"
+        run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={"slug": slug})
+        try:
+            run.require_scope()
+            agent = storage_skills.get_agent(slug) if storage_skills.postgres_enabled() else None
+            if not agent:
+                run.finish()
+                return json.dumps({"ok": False, "error": "agent not found", "slug": slug}, ensure_ascii=False, indent=2)
+            resolved = []
+            for sname in (agent.get("skills") or []):
+                sk = storage_skills.get_skill(sname) if storage_skills.postgres_enabled() else None
+                resolved.append(sk if sk else {"name": sname, "error": "not found"})
+            run.finish()
+            return json.dumps(
+                {
+                    "ok": True,
+                    "agent": {
+                        "slug": agent.get("slug", ""),
+                        "title": agent.get("title", ""),
+                        "description": agent.get("description", ""),
+                        "department": agent.get("department", ""),
+                    },
+                    "skills": resolved,
+                },
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        except PermissionError as exc:
+            run.denied(exc)
+            raise
+        except Exception as exc:
+            run.error(exc)
+            raise
+
+    @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Agent Publish", readOnlyHint=False))
+    async def gateway_company_agent_put(
+        slug: str,
+        title: str = "",
+        description: str = "",
+        department: str = "",
+        skills_json: str = "[]",
+    ) -> str:
+        """Опубликовать/обновить агента компании (набор навыков) в ядре. skills_json — JSON-массив имён уже опубликованных навыков. После вызова агент сразу доступен всем. Требует skills:admin."""
+        tool = "gateway_company_agent_put"
+        scope = "skills:admin"
+        run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={"slug": slug})
+        try:
+            actor = run.require_scope()
+            if not storage_skills.postgres_enabled():
+                run.finish()
+                return json.dumps({"ok": False, "error": "database not available"}, ensure_ascii=False, indent=2)
+            if not (slug or "").strip():
+                run.finish()
+                return json.dumps({"ok": False, "error": "slug is required"}, ensure_ascii=False, indent=2)
+            try:
+                parsed = json.loads(skills_json) if skills_json else []
+            except Exception:
+                parsed = []
+            skills = [str(s).strip() for s in parsed if isinstance(parsed, list) and str(s).strip()]
+            who = getattr(actor, "email", "") or getattr(actor, "subject", "") or ""
+            saved = storage_skills.upsert_agent(
+                slug=slug.strip(),
+                title=title or slug.strip(),
+                description=description,
+                department=department,
+                skills=skills,
+                updated_by=who,
+            )
+            run.finish()
+            return json.dumps({"ok": True, "saved": saved}, ensure_ascii=False, indent=2, default=str)
+        except PermissionError as exc:
+            run.denied(exc)
+            raise
+        except Exception as exc:
+            run.error(exc)
+            raise
+
+    @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Agent Delete", readOnlyHint=False))
+    async def gateway_company_agent_delete(slug: str) -> str:
+        """Убрать агента компании из ядра по имени (сами навыки остаются). Требует skills:admin."""
+        tool = "gateway_company_agent_delete"
+        scope = "skills:admin"
+        run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={"slug": slug})
+        try:
+            run.require_scope()
+            if not storage_skills.postgres_enabled():
+                run.finish()
+                return json.dumps({"ok": False, "error": "database not available"}, ensure_ascii=False, indent=2)
+            removed = storage_skills.delete_agent((slug or "").strip())
+            run.finish()
+            return json.dumps({"ok": True, "removed": removed, "slug": slug}, ensure_ascii=False, indent=2)
+        except PermissionError as exc:
+            run.denied(exc)
+            raise
+        except Exception as exc:
+            run.error(exc)
+            raise

@@ -63,6 +63,53 @@ def _autopublish_skill_if_approved(approval: dict) -> None:
     )
 
 
+def _autopublish_agent_if_approved(approval: dict) -> None:
+    """When an agent_proposal/agent_publish approval is approved, publish the agent and all its skills."""
+    approval = approval or {}
+    if str(approval.get("status") or "") != "approved":
+        return
+    if str(approval.get("approval_type") or "") not in ("agent_proposal", "agent_publish"):
+        return
+    payload = approval.get("payload") or {}
+    if not isinstance(payload, dict):
+        return
+    agent_meta = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+    slug = str(
+        agent_meta.get("slug") or agent_meta.get("name") or payload.get("agent_slug") or payload.get("slug") or ""
+    ).strip()
+    skills_in = payload.get("skills") if isinstance(payload.get("skills"), list) else []
+    if not slug or not skills_in:
+        return
+    from gateway_mcp.services import storage_skills
+
+    if not storage_skills.postgres_enabled():
+        return
+    who = str(approval.get("decided_by") or "approval")
+    names: list[str] = []
+    for item in skills_in:
+        skill = _extract_skill_from_payload(item if isinstance(item, dict) else {})
+        if not skill:
+            continue
+        storage_skills.upsert_skill(
+            name=skill["name"],
+            pack=skill["pack"],
+            department=skill["department"],
+            title=skill["title"],
+            description=skill["description"],
+            content=skill["content"],
+            updated_by=who,
+        )
+        names.append(skill["name"])
+    storage_skills.upsert_agent(
+        slug=slug,
+        title=str(agent_meta.get("title") or slug),
+        description=str(agent_meta.get("description") or payload.get("summary") or ""),
+        department=str(agent_meta.get("department") or payload.get("department") or ""),
+        skills=names,
+        updated_by=who,
+    )
+
+
 def register_approval_tools(mcp):
     @mcp.tool(annotations=ToolAnnotations(title="Gateway Approval Create"))
     async def gateway_approval_create(
@@ -229,6 +276,7 @@ def register_approval_tools(mcp):
             )
             try:
                 _autopublish_skill_if_approved(result.get("approval", {}))
+                _autopublish_agent_if_approved(result.get("approval", {}))
             except Exception:
                 pass  # публикация не должна ломать само решение по заявке
             run.finish(status=str(result.get("approval", {}).get("status") or "ok"))
