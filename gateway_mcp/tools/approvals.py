@@ -12,6 +12,57 @@ from gateway_mcp.services.approvals import (
 from gateway_mcp.tools.runtime import ToolRun
 
 
+def _extract_skill_from_payload(payload: dict) -> dict | None:
+    """Pull a publishable skill out of an approval payload (handles several shapes)."""
+    import re
+
+    if not isinstance(payload, dict):
+        return None
+    files = payload.get("files") if isinstance(payload.get("files"), dict) else {}
+    name = str(payload.get("skill_name") or payload.get("skill") or "").strip()
+    content = str(payload.get("skill_md") or files.get("SKILL.md") or "").strip()
+    if not name or not content:
+        return None
+    description = str(payload.get("summary") or payload.get("description") or "").strip()
+    if not description:
+        m = re.search(r'^description:\s*"?(.*?)"?\s*$', content, re.M)
+        if m:
+            description = m.group(1).strip()
+    return {
+        "name": name,
+        "pack": str(payload.get("skill_pack") or payload.get("pack") or ""),
+        "department": str(payload.get("department") or ""),
+        "title": str(payload.get("title") or name),
+        "description": description,
+        "content": content,
+    }
+
+
+def _autopublish_skill_if_approved(approval: dict) -> None:
+    """When a skill_proposal/skill_publish approval is approved, publish the skill to the core."""
+    approval = approval or {}
+    if str(approval.get("status") or "") != "approved":
+        return
+    if str(approval.get("approval_type") or "") not in ("skill_proposal", "skill_publish"):
+        return
+    skill = _extract_skill_from_payload(approval.get("payload") or {})
+    if not skill:
+        return
+    from gateway_mcp.services import storage_skills
+
+    if not storage_skills.postgres_enabled():
+        return
+    storage_skills.upsert_skill(
+        name=skill["name"],
+        pack=skill["pack"],
+        department=skill["department"],
+        title=skill["title"],
+        description=skill["description"],
+        content=skill["content"],
+        updated_by=str(approval.get("decided_by") or "approval"),
+    )
+
+
 def register_approval_tools(mcp):
     @mcp.tool(annotations=ToolAnnotations(title="Gateway Approval Create"))
     async def gateway_approval_create(
@@ -176,6 +227,10 @@ def register_approval_tools(mcp):
                 comment=comment,
                 decision_payload_json=decision_payload_json,
             )
+            try:
+                _autopublish_skill_if_approved(result.get("approval", {}))
+            except Exception:
+                pass  # публикация не должна ломать само решение по заявке
             run.finish(status=str(result.get("approval", {}).get("status") or "ok"))
             return _response(result)
         except PermissionError as exc:
