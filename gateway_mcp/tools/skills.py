@@ -48,10 +48,21 @@ def _match(skills: list[dict], query: str) -> list[dict]:
     return out
 
 
+def skill_summaries() -> list[dict]:
+    """Public: light catalog (no content) for bootstrap context and discovery."""
+    return [_summary(s) for s in _catalog()]
+
+
+SKILLS_HINT = (
+    "Навыки компании доступны прямо из ядра. Если задача подходит под навык из списка — "
+    "загрузи его инструкции через gateway_company_skill_get(name) и следуй им, прежде чем действовать."
+)
+
+
 def register_skill_tools(mcp):
     @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Skills List", readOnlyHint=True))
     async def gateway_company_skills_list(query: str = "") -> str:
-        """List the company's shared skills available from the core (name, pack, title, description). Optional query filters by text."""
+        """Навыки компании, доступные прямо из ядра. ВАЖНО: в начале рабочей задачи вызови это ПЕРВЫМ — проверь, есть ли подходящий утверждённый навык компании; если есть, загрузи его через gateway_company_skill_get и следуй его шагам, прежде чем отвечать. Необязательный query фильтрует по тексту."""
         tool = "gateway_company_skills_list"
         scope = "skills:read"
         run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={"query": query})
@@ -73,7 +84,7 @@ def register_skill_tools(mcp):
 
     @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Skill Get", readOnlyHint=True))
     async def gateway_company_skill_get(name: str) -> str:
-        """Return the full instructions (SKILL.md) of one company skill by its name, so the agent can follow it."""
+        """Загрузи полные инструкции (SKILL.md) навыка компании по имени и СЛЕДУЙ им для задачи. Используй вместе с gateway_company_skills_list, чтобы применять утверждённый в компании способ работы."""
         tool = "gateway_company_skill_get"
         scope = "skills:read"
         run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={"name": name})

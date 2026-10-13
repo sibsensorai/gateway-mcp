@@ -8,6 +8,7 @@ from gateway_mcp.services.context_budget import DEFAULT_CONTEXT_MAX_CHARS, compa
 from gateway_mcp.services.memory import search_memory
 from gateway_mcp.config import read_json, tools_file
 from gateway_mcp.tools.runtime import ToolRun
+from gateway_mcp.tools.skills import SKILLS_HINT, skill_summaries
 
 
 def register_company_tools(mcp):
@@ -188,6 +189,7 @@ def register_company_tools(mcp):
                     "memory": memory_results,
                     "items": items,
                     "sources": sources,
+                    "company_skills": {"hint": SKILLS_HINT, "available": skill_summaries()},
                 },
                 max_chars,
             )
