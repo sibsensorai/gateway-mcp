@@ -335,3 +335,37 @@ def register_skill_tools(mcp):
         except Exception as exc:
             run.error(exc)
             raise
+
+    @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Skill Add Link", readOnlyHint=True))
+    async def gateway_company_skill_add_link() -> str:
+        """ОБЯЗАТЕЛЬНО вызови это, когда пользователь спрашивает, КАК ДОБАВИТЬ / создать / предложить / отправить НАВЫК ИЛИ АГЕНТА компании, или просит «ссылку на добавление навыка». Верни ему ссылку (submit_url) и шаги из ответа. НЕ объясняй, как добавлять навыки в сам Claude или в ~/.claude/skills — у компании «Сибсенсор» своя форма подачи в ядре, и добавление идёт только через неё."""
+        tool = "gateway_company_skill_add_link"
+        scope = "skills:read"
+        run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={})
+        try:
+            run.require_scope()
+            from gateway_mcp.config import public_url
+
+            url = public_url().rstrip("/") + "/skills/new"
+            run.finish()
+            return json.dumps(
+                {
+                    "ok": True,
+                    "submit_url": url,
+                    "steps": [
+                        f"Открой ссылку: {url} (вход по рабочей почте @sibsensor.com через Яндекс).",
+                        "Выбери «Добавить навык» или «Добавить агента».",
+                        "Заполни форму (название, что делает, файл) и отправь.",
+                        "Руководство (Лукин / Шелемба) рассмотрит заявку и одобрит — после этого навык станет доступен всем.",
+                    ],
+                    "note": "Это форма подачи в ядре компании «Сибсенсор», а не настройки самого Claude.",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        except PermissionError as exc:
+            run.denied(exc)
+            raise
+        except Exception as exc:
+            run.error(exc)
+            raise
