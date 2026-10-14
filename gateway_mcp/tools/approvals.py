@@ -274,11 +274,6 @@ def register_approval_tools(mcp):
                 comment=comment,
                 decision_payload_json=decision_payload_json,
             )
-            try:
-                _autopublish_skill_if_approved(result.get("approval", {}))
-                _autopublish_agent_if_approved(result.get("approval", {}))
-            except Exception:
-                pass  # публикация не должна ломать само решение по заявке
             run.finish(status=str(result.get("approval", {}).get("status") or "ok"))
             return _response(result)
         except PermissionError as exc:
