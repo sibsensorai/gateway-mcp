@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from asyncio import to_thread as run_in_threadpool
+from functools import wraps
 from html import escape
 
 from starlette.responses import RedirectResponse
@@ -13,6 +14,7 @@ from gateway_mcp.routes.admin_access import _guard, _page
 from gateway_mcp.routes.admin_ui import fmt_time
 from gateway_mcp.services.admin_roles import require_current_admin
 from gateway_mcp.services.approvals import create_approval, decide_approval, list_visible_approvals
+from gateway_mcp.web import login_redirect, web_actor
 
 DEPTS = ["IT", "Продажи", "Производство", "Руководство", "Другое"]
 _DEPT_PACK = {
@@ -169,6 +171,36 @@ def _card(appr: dict) -> str:
     )
 
 
+def _user_guard(handler):
+    """Любой залогиненный сотрудник (вход через Яндекс), без права access:admin."""
+
+    @wraps(handler)
+    async def guarded(request):
+        actor = web_actor(request)
+        if actor is None:
+            return login_redirect("/skills/new")
+        try:
+            response = await handler(request, actor)
+        except Exception:  # noqa: BLE001 - не раскрываем внутренние ошибки
+            response = _page(
+                actor,
+                "Что-то пошло не так",
+                "skills-new",
+                '<div class="sr-empty">Не удалось отправить заявку. Попробуй ещё раз позже.</div>',
+                503,
+            )
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "same-origin"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+        )
+        return response
+
+    return guarded
+
+
 def register_skill_requests_routes(mcp):
     @mcp.custom_route("/admin/skill-requests", methods=["GET"], include_in_schema=False)
     @_guard
@@ -212,19 +244,19 @@ def register_skill_requests_routes(mcp):
         return RedirectResponse("/admin/skill-requests", status_code=303)
 
     @mcp.custom_route("/skills/new", methods=["GET"], include_in_schema=False)
-    @_guard
+    @_user_guard
     async def skills_new(request, actor):
         ok = request.query_params.get("ok")
         banner = '<div class="sr-ok">✅ Заявка отправлена — владельцы её рассмотрят.</div>' if ok else ""
         return _page(actor, "Добавить навык или агента", "skills-new", _FORM_CSS + banner + _new_landing())
 
     @mcp.custom_route("/skills/submit", methods=["GET"], include_in_schema=False)
-    @_guard
+    @_user_guard
     async def skill_form(request, actor):
         return _page(actor, "Новый навык", "skills-new", _FORM_CSS + _skill_form_html())
 
     @mcp.custom_route("/skills/submit", methods=["POST"], include_in_schema=False)
-    @_guard
+    @_user_guard
     async def skill_form_post(request, actor):
         form = await request.form()
         name = str(form.get("name", "")).strip()
@@ -258,12 +290,12 @@ def register_skill_requests_routes(mcp):
         return RedirectResponse("/skills/new?ok=1", status_code=303)
 
     @mcp.custom_route("/skills/submit-agent", methods=["GET"], include_in_schema=False)
-    @_guard
+    @_user_guard
     async def agent_form(request, actor):
         return _page(actor, "Новый агент", "skills-new", _FORM_CSS + _agent_form_html())
 
     @mcp.custom_route("/skills/submit-agent", methods=["POST"], include_in_schema=False)
-    @_guard
+    @_user_guard
     async def agent_form_post(request, actor):
         form = await request.form()
         slug = str(form.get("slug", "")).strip()
