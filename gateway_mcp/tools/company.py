@@ -6,7 +6,7 @@ from gateway_mcp.services.auth import require_scope
 from gateway_mcp.services.company import get_company_item, search_company_index, search_company_sources, source_of_truth
 from gateway_mcp.services.context_budget import DEFAULT_CONTEXT_MAX_CHARS, compact_reference, fit_context_payload
 from gateway_mcp.services.memory import search_memory
-from gateway_mcp.config import read_json, tools_file
+from gateway_mcp.config import public_url, read_json, tools_file
 from gateway_mcp.tools.runtime import ToolRun
 from gateway_mcp.tools.skills import SKILLS_HINT, skill_summaries
 
@@ -189,7 +189,12 @@ def register_company_tools(mcp):
                     "memory": memory_results,
                     "items": items,
                     "sources": sources,
-                    "company_skills": {"hint": SKILLS_HINT, "available": skill_summaries()},
+                    "company_skills": {
+                        "hint": SKILLS_HINT,
+                        "available": skill_summaries(),
+                        "submit_url": public_url().rstrip("/") + "/skills/new",
+                        "submit_hint": "Чтобы ДОБАВИТЬ новый навык или агента — открой эту ссылку (или дай её сотруднику).",
+                    },
                 },
                 max_chars,
             )

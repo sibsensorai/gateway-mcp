@@ -200,7 +200,8 @@ def _autopublish_on_approval(approval: dict) -> None:
             agent_meta.get("slug") or agent_meta.get("name") or payload.get("agent_slug") or payload.get("slug") or ""
         ).strip()
         skills_in = payload.get("skills") if isinstance(payload.get("skills"), list) else []
-        if not slug or not skills_in:
+        ref_names = payload.get("skill_names") if isinstance(payload.get("skill_names"), list) else []
+        if not slug or (not skills_in and not ref_names):
             return
         names: list[str] = []
         for item in skills_in:
@@ -213,6 +214,10 @@ def _autopublish_on_approval(approval: dict) -> None:
                 updated_by=who,
             )
             names.append(skill["name"])
+        for ref in ref_names:
+            ref = str(ref or "").strip()
+            if ref and ref not in names:
+                names.append(ref)
         storage_skills.upsert_agent(
             slug=slug, title=str(agent_meta.get("title") or slug),
             description=str(agent_meta.get("description") or payload.get("summary") or ""),
