@@ -13,7 +13,9 @@ from gateway_mcp.config import public_url
 from gateway_mcp.routes.admin_access import _guard, _page
 from gateway_mcp.routes.admin_ui import fmt_time
 from gateway_mcp.services.admin_roles import require_current_admin
+from gateway_mcp.services import storage_skills
 from gateway_mcp.services.approvals import create_approval, decide_approval, list_visible_approvals
+from gateway_mcp.tools.skills import skill_summaries
 from gateway_mcp.web import login_redirect, web_actor
 
 DEPTS = ["IT", "Продажи", "Производство", "Руководство", "Другое"]
@@ -171,6 +173,121 @@ def _card(appr: dict) -> str:
     )
 
 
+_STATUS_RU = {
+    "pending": ("⏳ На рассмотрении", "wait"),
+    "need_info": ("❓ Нужны уточнения", "wait"),
+    "approved": ("✅ Одобрено", "ok"),
+    "rejected": ("❌ Отклонено", "no"),
+    "cancelled": ("⏹ Отменено", "no"),
+}
+
+_ME_CSS = """
+<style>
+.me-wrap{display:flex;flex-direction:column;gap:20px;max-width:900px}
+.me-hero{background:linear-gradient(135deg,#2b6cff,#1746b8);color:#fff;border-radius:16px;padding:22px 24px}
+.me-hero h2{margin:0 0 4px;font-size:22px}
+.me-hero p{margin:0;opacity:.92;font-size:15px}
+.me-cta{display:inline-block;margin-top:14px;background:#fff;color:#1746b8;text-decoration:none;border-radius:10px;padding:11px 22px;font-weight:700;font-size:15px}
+.me-sec{background:#fff;border:1px solid #e3e6ef;border-radius:14px;padding:18px 22px}
+.me-sec h3{margin:0 0 12px;font-size:17px;color:#0d1b4c}
+.me-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.me-list li{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 0;border-bottom:1px solid #f0f2f8}
+.me-list li:last-child{border-bottom:none}
+.me-k{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#2b6cff;background:#eef3ff;border-radius:999px;padding:3px 10px}
+.me-name{font-weight:600;color:#0d1b4c}
+.me-desc{color:#53607a;font-size:14px;flex-basis:100%}
+.me-date{color:#9099ad;font-size:12.5px;margin-left:auto}
+.me-badge{font-size:12.5px;font-weight:700;border-radius:999px;padding:3px 11px}
+.me-badge.wait{background:#fff5e0;color:#8a5a00}
+.me-badge.ok{background:#e7f8ef;color:#0b5e42}
+.me-badge.no{background:#fdeaea;color:#b11c1c}
+.me-empty{color:#7a8296;font-size:14px;margin:0}
+.me-links{display:flex;gap:10px;flex-wrap:wrap}
+.me-links a{text-decoration:none;color:#1746b8;border:1px solid #d9e1f2;border-radius:9px;padding:9px 16px;font-size:14px;font-weight:600;background:#f7f9ff}
+</style>
+"""
+
+
+def _me_requests(mine: list) -> str:
+    if not mine:
+        return '<p class="me-empty">Ты ещё не отправлял заявок. Нажми «Предложить навык» выше.</p>'
+    items = []
+    for a in mine:
+        is_agent = str(a.get("approval_type") or "") in ("agent_proposal", "agent_publish")
+        kind = "Агент" if is_agent else "Навык"
+        name = escape(str(a.get("subject") or ""))
+        label, cls = _STATUS_RU.get(str(a.get("status") or ""), (str(a.get("status") or ""), "wait"))
+        date = escape(fmt_time(a.get("created_at")))
+        items.append(
+            f'<li><span class="me-k">{kind}</span>'
+            f'<span class="me-name">{name}</span>'
+            f'<span class="me-badge {cls}">{escape(label)}</span>'
+            f'<span class="me-date">{date}</span></li>'
+        )
+    return f'<ul class="me-list">{"".join(items)}</ul>'
+
+
+def _me_catalog(skills: list, agents: list) -> str:
+    parts = []
+    if agents:
+        items = []
+        for ag in agents:
+            name = escape(str(ag.get("title") or ag.get("slug") or ""))
+            desc = escape(str(ag.get("description") or ""))
+            raw = ag.get("skills")
+            count = len(raw) if isinstance(raw, list) else 0
+            sub = f" · {count} навыков" if count else ""
+            items.append(
+                f'<li><span class="me-k">Агент</span><span class="me-name">{name}{sub}</span>'
+                f'<span class="me-desc">{desc}</span></li>'
+            )
+        parts.append(f'<ul class="me-list">{"".join(items)}</ul>')
+    if skills:
+        items = []
+        for sk in skills:
+            name = escape(str(sk.get("title") or sk.get("name") or ""))
+            dept = escape(str(sk.get("department") or ""))
+            desc = escape(str(sk.get("description") or ""))
+            tag = f'<span class="me-k">{dept}</span>' if dept else '<span class="me-k">Навык</span>'
+            items.append(
+                f'<li>{tag}<span class="me-name">{name}</span>'
+                f'<span class="me-desc">{desc}</span></li>'
+            )
+        parts.append(f'<ul class="me-list">{"".join(items)}</ul>')
+    if not parts:
+        return '<p class="me-empty">Пока в компании нет общих навыков. Будь первым — предложи свой!</p>'
+    return "".join(parts)
+
+
+def _me_body(actor, mine: list, skills: list, agents: list) -> str:
+    hero = (
+        '<div class="me-hero">'
+        f"<h2>Привет, {escape(actor.display)}! 👋</h2>"
+        "<p>Ты подключён к «Сибсенсор AI». Здесь — твои заявки и навыки компании.</p>"
+        '<a class="me-cta" href="/skills/new">➕ Предложить навык или агента</a>'
+        "</div>"
+    )
+    requests = (
+        '<section class="me-sec"><h3>📋 Мои заявки</h3>'
+        + _me_requests(mine)
+        + "</section>"
+    )
+    catalog = (
+        '<section class="me-sec"><h3>🧩 Навыки и агенты компании</h3>'
+        + _me_catalog(skills, agents)
+        + "</section>"
+    )
+    links = (
+        '<section class="me-sec"><h3>🔗 Ещё</h3>'
+        '<div class="me-links">'
+        '<a href="/notifications">🔔 Уведомления</a>'
+        '<a href="/credentials">🔌 Мои подключения</a>'
+        '<a href="/my/skills">📊 Моя статистика</a>'
+        "</div></section>"
+    )
+    return '<div class="me-wrap">' + hero + requests + catalog + links + "</div>"
+
+
 def _user_guard(handler):
     """Любой залогиненный сотрудник (вход через Яндекс), без права access:admin."""
 
@@ -178,7 +295,7 @@ def _user_guard(handler):
     async def guarded(request):
         actor = web_actor(request)
         if actor is None:
-            return login_redirect("/skills/new")
+            return login_redirect(request.url.path or "/me")
         try:
             response = await handler(request, actor)
         except Exception:  # noqa: BLE001 - не раскрываем внутренние ошибки
@@ -242,6 +359,31 @@ def register_skill_requests_routes(mcp):
                 )
             )
         return RedirectResponse("/admin/skill-requests", status_code=303)
+
+    @mcp.custom_route("/me", methods=["GET"], include_in_schema=False)
+    @_user_guard
+    async def me_home(request, actor):
+        res = await run_in_threadpool(
+            lambda: list_visible_approvals(
+                actor=actor,
+                status="",
+                approval_type="",
+                created_by=actor.subject,
+                required_role="",
+                assigned_to_me=False,
+                limit=50,
+            )
+        )
+        mine = [a for a in res.get("approvals", []) if str(a.get("approval_type") or "") in SKILL_TYPES]
+        try:
+            skills = await run_in_threadpool(skill_summaries)
+        except Exception:
+            skills = []
+        try:
+            agents = await run_in_threadpool(storage_skills.list_agents)
+        except Exception:
+            agents = []
+        return _page(actor, "Моя страница", "me-home", _ME_CSS + _me_body(actor, mine, skills, agents))
 
     @mcp.custom_route("/skills/new", methods=["GET"], include_in_schema=False)
     @_user_guard

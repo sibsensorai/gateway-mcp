@@ -26,7 +26,7 @@ def admin_shell(
 ) -> str:
     is_admin = has_scope(actor, "access:admin")
     nav = _navigation(active=active, is_admin=is_admin)
-    home_url = "/admin" if is_admin else "/notifications"
+    home_url = "/admin" if is_admin else "/me"
     return f"""
     <!doctype html>
     <html lang="ru">
@@ -293,6 +293,7 @@ def _navigation(*, active: str, is_admin: bool) -> str:
         (
             "Рабочее место",
             (
+                ("me-home", "Моя страница", "/me"),
                 ("my-skills", "Мои навыки", "/my/skills"),
                 ("notifications", "Уведомления", "/notifications"),
                 ("credentials", "Мои подключения", "/credentials"),
