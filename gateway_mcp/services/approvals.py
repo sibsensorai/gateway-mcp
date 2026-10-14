@@ -19,6 +19,33 @@ OPEN_STATUSES = {"pending", "need_info"}
 DECISIONS = {"approved", "rejected", "need_info"}
 
 
+def _notify_telegram_new_request(approval: dict) -> None:
+    """Best-effort Telegram ping to owners when a new skill/agent request is created."""
+    atype = str((approval or {}).get("approval_type") or "")
+    if atype not in ("skill_proposal", "skill_publish", "agent_proposal", "agent_publish"):
+        return
+    try:
+        from gateway_mcp.backends.notifications import _configured_skill_update_chat_id, _send_via_bot_api
+        from gateway_mcp.config import public_url
+
+        chat_id = _configured_skill_update_chat_id()
+        payload = approval.get("payload") if isinstance(approval.get("payload"), dict) else {}
+        if atype.startswith("agent"):
+            meta = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+            name = str(meta.get("title") or meta.get("slug") or approval.get("subject") or "")
+            kind = "Агент (набор навыков)"
+            what = str(meta.get("description") or payload.get("summary") or "")
+        else:
+            name = str(payload.get("skill_name") or payload.get("skill") or approval.get("subject") or "")
+            kind = "Навык"
+            what = str(payload.get("summary") or "")
+        link = public_url().rstrip("/") + "/admin/skill-requests"
+        text = f"🆕 Новая заявка на одобрение\n{kind}: {name}\n{what}\nОткрыть: {link}"
+        _send_via_bot_api(chat_id, text)
+    except Exception:
+        pass  # Telegram опционален — не ломаем создание заявки
+
+
 def create_approval(
     *,
     actor: GatewayActor,
@@ -71,6 +98,7 @@ def create_approval(
         four_eyes=bool(four_eyes),
         expires_in_days=expires_in_days or None,
     )
+    _notify_telegram_new_request(approval)
     return {"approval": approval, "events": list_approval_events(approval_id)}
 
 
