@@ -41,17 +41,22 @@ _MAX_ATTACH = 5 * 1024 * 1024  # 5 МБ на вложение
 
 
 async def _read_attachment(form):
-    """Достаёт приложенный файл из формы. Возвращает (attachment|None, текст_если_md|'')."""
+    """Достаёт приложенный файл из формы. Возвращает (attachment|None, текст_если_md|'', статус).
+
+    Статус: '' — файл не выбран; 'ok:<имя>'; 'empty'; 'toolarge'; 'error'.
+    """
     up = form.get("attachment")
     filename = getattr(up, "filename", "") or ""
     if not filename:
-        return None, ""
+        return None, "", ""
     try:
         data = await up.read()
     except Exception:
-        return None, ""
-    if not data or len(data) > _MAX_ATTACH:
-        return None, ""
+        return None, "", "error"
+    if not data:
+        return None, "", "empty"
+    if len(data) > _MAX_ATTACH:
+        return None, "", "toolarge"
     att_text = ""
     if filename.lower().endswith((".md", ".markdown", ".txt")):
         att_text = data.decode("utf-8", errors="replace").strip()
@@ -60,7 +65,7 @@ async def _read_attachment(form):
         "size": len(data),
         "content_base64": base64.b64encode(data).decode("ascii"),
     }
-    return attachment, att_text
+    return attachment, att_text, "ok:" + filename
 
 
 _FORM_CSS = """
@@ -75,6 +80,23 @@ _FORM_CSS = """
 .btn{display:inline-block;background:#2b6cff;color:#fff;text-decoration:none;border-radius:9px;padding:10px 20px;font-weight:600;font-size:14px;margin-top:6px}
 </style>
 """
+
+
+def _att_banner(note: str) -> str:
+    """Понятное сообщение о том, что стало с приложенным файлом."""
+    note = (note or "").strip()
+    if not note:
+        return ""
+    if note.startswith("ok:"):
+        text, color = f"📎 Файл «{escape(note[3:])}» приложен к заявке.", "ok"
+    elif note == "empty":
+        text, color = "⚠️ Файл пустой (0 байт) — он не приложен. Проверь файл и приложи заново.", "warn"
+    elif note == "toolarge":
+        text, color = "⚠️ Файл больше 5 МБ — он не приложен.", "warn"
+    else:
+        text, color = "⚠️ Не удалось прочитать файл — он не приложен.", "warn"
+    style = "" if color == "ok" else ' style="background:#fff5e0;border-color:#f0d79a;color:#8a5a00"'
+    return f'<div class="sr-ok"{style}>{text}</div>'
 
 
 def _new_landing() -> str:
@@ -462,6 +484,7 @@ def register_skill_requests_routes(mcp):
     async def skills_new(request, actor):
         ok = request.query_params.get("ok")
         banner = '<div class="sr-ok">✅ Заявка отправлена — владельцы её рассмотрят.</div>' if ok else ""
+        banner += _att_banner(request.query_params.get("att", "")) if ok else ""
         return _page(actor, "Добавить навык или агента", "skills-new", _FORM_CSS + banner + _new_landing())
 
     @mcp.custom_route("/skills/submit", methods=["GET"], include_in_schema=False)
@@ -474,6 +497,7 @@ def register_skill_requests_routes(mcp):
                 "Нужно название и текст навыка: вставь SKILL.md текстом или приложи файл .md/.txt. "
                 "Файлы .docx/.zip принимаются как материалы, но текст навыка всё равно нужен.</div>"
             )
+            banner += _att_banner(request.query_params.get("att", ""))
         return _page(actor, "Новый навык", "skills-new", _FORM_CSS + banner + _skill_form_html())
 
     @mcp.custom_route("/skills/submit", methods=["POST"], include_in_schema=False)
@@ -484,7 +508,7 @@ def register_skill_requests_routes(mcp):
         dept = str(form.get("department", "")).strip()
         summary = str(form.get("summary", "")).strip()
         content = str(form.get("content", "")).strip()
-        attachment, att_text = await _read_attachment(form)
+        attachment, att_text, att_note = await _read_attachment(form)
         if not content and att_text:
             content = att_text
         if name and content:
@@ -513,8 +537,8 @@ def register_skill_requests_routes(mcp):
                     expires_in_days=14,
                 )
             )
-            return RedirectResponse("/skills/new?ok=1", status_code=303)
-        return RedirectResponse("/skills/submit?err=1", status_code=303)
+            return RedirectResponse("/skills/new?ok=1&att=" + quote(att_note), status_code=303)
+        return RedirectResponse("/skills/submit?err=1&att=" + quote(att_note), status_code=303)
 
     @mcp.custom_route("/skills/submit-agent", methods=["GET"], include_in_schema=False)
     @_user_guard
@@ -531,7 +555,7 @@ def register_skill_requests_routes(mcp):
         dept = str(form.get("department", "")).strip()
         raw = str(form.get("skill_names", ""))
         names = [s.strip() for s in raw.replace(",", "\n").splitlines() if s.strip()]
-        attachment, _ = await _read_attachment(form)
+        attachment, _, att_note = await _read_attachment(form)
         if slug and names:
             payload = {
                 "agent": {"slug": slug, "title": title or slug, "description": desc, "department": dept},
@@ -555,4 +579,4 @@ def register_skill_requests_routes(mcp):
                     expires_in_days=14,
                 )
             )
-        return RedirectResponse("/skills/new?ok=1", status_code=303)
+        return RedirectResponse("/skills/new?ok=1&att=" + quote(att_note), status_code=303)
