@@ -21,6 +21,9 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      HTTP_PROXY: ${GATEWAY_EGRESS_PROXY:-}
+      HTTPS_PROXY: ${GATEWAY_EGRESS_PROXY:-}
+      NO_PROXY: ${GATEWAY_NO_PROXY:-postgres,localhost,127.0.0.1}
       GATEWAY_TRANSPORT: streamable-http
       GATEWAY_AUTH_ENABLED: ${GATEWAY_AUTH_ENABLED:-true}
       GATEWAY_HOST: 0.0.0.0
@@ -154,6 +157,9 @@ services:
       gateway:
         condition: service_healthy
     environment:
+      HTTP_PROXY: ${GATEWAY_EGRESS_PROXY:-}
+      HTTPS_PROXY: ${GATEWAY_EGRESS_PROXY:-}
+      NO_PROXY: ${GATEWAY_NO_PROXY:-postgres,localhost,127.0.0.1}
       GATEWAY_DATABASE_URL: postgresql://gateway_mcp:${POSTGRES_PASSWORD:-gateway_mcp_dev}@postgres:5432/gateway_mcp
       GATEWAY_WEB_PUSH_VAPID_PRIVATE_KEY: ${GATEWAY_WEB_PUSH_VAPID_PRIVATE_KEY:-}
       GATEWAY_WEB_PUSH_VAPID_SUBJECT: ${GATEWAY_WEB_PUSH_VAPID_SUBJECT:-mailto:admin@example.com}
@@ -161,6 +167,12 @@ services:
       GATEWAY_NOTIFICATION_BATCH_SIZE: ${GATEWAY_NOTIFICATION_BATCH_SIZE:-25}
       GATEWAY_NOTIFICATION_MAX_ATTEMPTS: ${GATEWAY_NOTIFICATION_MAX_ATTEMPTS:-8}
       GATEWAY_WEB_PUSH_TIMEOUT_SECONDS: ${GATEWAY_WEB_PUSH_TIMEOUT_SECONDS:-10}
+
+  squid:
+    image: ubuntu/squid:latest
+    restart: unless-stopped
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
 
 volumes:
   gateway-postgres:
