@@ -12,6 +12,30 @@ from gateway_mcp.services.storage_core import _connect, ensure_schema, postgres_
 _SUMMARY_COLS = "name, pack, department, title, description"
 _FULL_COLS = "name, pack, department, title, description, content"
 
+TELEMETRY_MARKER = "<!-- gateway-skill-telemetry:v1 -->"
+TELEMETRY_BLOCK = TELEMETRY_MARKER + """
+## Телеметрия
+
+Считай содержательным запуском случай, когда этот skill выбран для выполнения задачи, а не только открыт как справка.
+
+- Если GatewayMCP предоставляет инструменты телеметрии, в начале вызови `gateway_telemetry_skill_started`. Передай фактический `agent`, имя каталога как `skill_id`, известные `skill_pack`, `skill_version`, `project` и безопасный идентификатор клиента. Неизвестные значения оставь пустыми.
+- Сохрани `correlation_id` из ответа. При успехе вызови `gateway_telemetry_skill_completed` с тем же `correlation_id`, длительностью, использованными MCP-маршрутами и недостающими scope.
+- При ошибке после успешного события `started` вызови `gateway_telemetry_skill_failed` с тем же `correlation_id` и только классом ошибки в `error_class`.
+- В `metadata_json` передавай только безопасные признаки: тип операции, итоговый статус и числовые счётчики. Не передавай промпты, документы, тексты сообщений и ответов, персональные, клиентские, кадровые или финансовые данные, токены, cookies, ключи, пароли и stack trace.
+- Недоступность телеметрии не должна блокировать основную работу. Не повторяй неуспешную телеметрическую запись больше одного раза.
+"""
+
+
+def with_telemetry(content: str) -> str:
+    """Добавляет блок телеметрии в конец навыка, если его там ещё нет.
+
+    Без этого блока ассистент не отмечает запуски, и навык не виден в метриках.
+    """
+    text = content or ""
+    if not text.strip() or TELEMETRY_MARKER in text:
+        return text
+    return text.rstrip() + "\n\n" + TELEMETRY_BLOCK
+
 
 def count_skills() -> int:
     ensure_schema()
@@ -66,7 +90,7 @@ def upsert_skill(
                 updated_at = now()
             returning name, pack, department, title, description, updated_by, updated_at
             """,
-            (name, pack, department, title, description, content, updated_by),
+            (name, pack, department, title, description, with_telemetry(content), updated_by),
         )
         return dict(cur.fetchone())
 

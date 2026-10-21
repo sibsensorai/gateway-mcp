@@ -6,6 +6,7 @@ from starlette.responses import HTMLResponse, PlainTextResponse, Response
 
 from gateway_mcp.routes.admin_ui import admin_shell, empty_row, fmt_time
 from gateway_mcp.services.policy import has_scope
+from gateway_mcp.services.storage_skills import list_skills
 from gateway_mcp.services.telemetry import skill_stats
 from gateway_mcp.web import login_redirect, web_actor
 
@@ -67,6 +68,7 @@ def register_admin_telemetry_routes(mcp) -> None:
             <tbody>{_skill_rows(rows)}</tbody>
           </table></div>
         </section>
+        {_unused_panel(rows, filters)}
         """
         return HTMLResponse(
             admin_shell(
@@ -143,6 +145,38 @@ def _skill_rows(rows: list[dict[str, Any]]) -> str:
         "</tr>"
         for row in rows
     )
+
+
+def _unused_panel(rows: list[dict[str, Any]], filters: dict[str, Any]) -> str:
+    """Навыки из каталога ядра, у которых за период нет ни одного запуска."""
+    if any(filters[key] for key in filters if key != "days"):
+        return ""
+    try:
+        catalog = list_skills()
+    except Exception:  # noqa: BLE001 - без каталога просто не показываем блок
+        return ""
+    used = {str(row.get("skill_id") or "").lower() for row in rows}
+    unused = [s for s in catalog if str(s.get("name") or "").lower() not in used]
+    if not unused:
+        return ""
+    items = "".join(
+        f'<tr><td><strong>{escape(str(s.get("name") or ""))}</strong>'
+        f'<span class="table-sub">{escape(str(s.get("title") or ""))}</span></td>'
+        f'<td>{escape(str(s.get("pack") or "—"))}</td></tr>'
+        for s in unused
+    )
+    return f"""
+    <section class="panel wide">
+      <div class="panel-header">
+        <div><h2>Ещё не запускались</h2><p class="description">Навыки есть в ядре, но за выбранный период ни одного отмеченного запуска.</p></div>
+        <span class="status warning">{len(unused)}</span>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Навык</th><th>Пакет</th></tr></thead>
+        <tbody>{items}</tbody>
+      </table></div>
+    </section>
+    """
 
 
 def _totals(rows: list[dict[str, Any]]) -> dict[str, int | float]:

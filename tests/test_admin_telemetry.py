@@ -108,6 +108,49 @@ class AdminTelemetryRouteTests(unittest.TestCase):
             actor_subject="yandex:user",
         )
 
+    def test_page_lists_catalog_skills_without_runs(self) -> None:
+        from gateway_mcp.routes.admin_telemetry import register_admin_telemetry_routes
+        from gateway_mcp.services.policy import GatewayActor
+
+        fake = FakeMcp()
+        register_admin_telemetry_routes(fake)
+        rows = [{"skill_id": "it-printer-diagnostika", "started_count": 1}]
+        catalog = [
+            {"name": "it-printer-diagnostika", "pack": "sibsensor-it", "title": "Принтер"},
+            {"name": "sibsensor-reglament-writer", "pack": "sibsensor-mgmt", "title": "Автор регламентов"},
+        ]
+        with (
+            patch(
+                "gateway_mcp.routes.admin_telemetry.web_actor",
+                return_value=GatewayActor(subject="admin", scopes=("access:admin",)),
+            ),
+            patch("gateway_mcp.routes.admin_telemetry.skill_stats", return_value={"skills": rows}),
+            patch("gateway_mcp.routes.admin_telemetry.list_skills", return_value=catalog),
+        ):
+            response = asyncio.run(fake.routes["/admin/telemetry/skills"]["func"](FakeRequest()))
+
+        body = response.body
+        self.assertIn("Ещё не запускались", body)
+        unused = body.split("Ещё не запускались", 1)[1]
+        self.assertIn("sibsensor-reglament-writer", unused)
+        self.assertNotIn("it-printer-diagnostika", unused)
+
+
+class SkillTelemetryBlockTests(unittest.TestCase):
+    def test_block_is_appended_once(self) -> None:
+        from gateway_mcp.services.storage_skills import TELEMETRY_MARKER, with_telemetry
+
+        once = with_telemetry("# Навык\n\nТекст")
+        self.assertIn(TELEMETRY_MARKER, once)
+        self.assertIn("gateway_telemetry_skill_started", once)
+        self.assertEqual(with_telemetry(once), once)
+        self.assertEqual(once.count(TELEMETRY_MARKER), 1)
+
+    def test_empty_content_stays_empty(self) -> None:
+        from gateway_mcp.services.storage_skills import with_telemetry
+
+        self.assertEqual(with_telemetry(""), "")
+
 
 if __name__ == "__main__":
     unittest.main()
