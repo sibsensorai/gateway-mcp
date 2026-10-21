@@ -14,6 +14,7 @@ from gateway_mcp.routes.credentials import register_credentials_routes
 from gateway_mcp.routes.factory_git import register_factory_git_routes
 from gateway_mcp.routes.file_transfers import register_file_transfer_routes
 from gateway_mcp.routes.health import register_health_routes
+from gateway_mcp.routes.hub import register_hub_routes
 from gateway_mcp.routes.llm_proxy import register_llm_proxy_routes
 from gateway_mcp.routes.notifications import register_notification_routes
 from gateway_mcp.routes.skill_requests_ui import register_skill_requests_routes
@@ -60,6 +61,7 @@ def create_mcp():
     register_admin_factory_connection_routes(server)
     register_admin_telemetry_routes(server)
     register_skill_requests_routes(server)
+    register_hub_routes(server)
     register_company_tools(server)
     register_memory_tools(server)
     register_notification_tools(server)
