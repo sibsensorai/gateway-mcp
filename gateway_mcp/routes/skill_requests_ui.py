@@ -467,7 +467,14 @@ def register_skill_requests_routes(mcp):
     @mcp.custom_route("/skills/submit", methods=["GET"], include_in_schema=False)
     @_user_guard
     async def skill_form(request, actor):
-        return _page(actor, "Новый навык", "skills-new", _FORM_CSS + _skill_form_html())
+        banner = ""
+        if request.query_params.get("err"):
+            banner = (
+                '<div class="sr-ok" style="background:#fdeaea;border-color:#f3c0c0;color:#b11c1c">'
+                "Нужно название и текст навыка: вставь SKILL.md текстом или приложи файл .md/.txt. "
+                "Файлы .docx/.zip принимаются как материалы, но текст навыка всё равно нужен.</div>"
+            )
+        return _page(actor, "Новый навык", "skills-new", _FORM_CSS + banner + _skill_form_html())
 
     @mcp.custom_route("/skills/submit", methods=["POST"], include_in_schema=False)
     @_user_guard
@@ -506,7 +513,8 @@ def register_skill_requests_routes(mcp):
                     expires_in_days=14,
                 )
             )
-        return RedirectResponse("/skills/new?ok=1", status_code=303)
+            return RedirectResponse("/skills/new?ok=1", status_code=303)
+        return RedirectResponse("/skills/submit?err=1", status_code=303)
 
     @mcp.custom_route("/skills/submit-agent", methods=["GET"], include_in_schema=False)
     @_user_guard
