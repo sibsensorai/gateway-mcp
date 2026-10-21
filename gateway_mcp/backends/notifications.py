@@ -110,6 +110,43 @@ def _send_via_bot_api(chat_id: str, text: str) -> dict[str, Any]:
     }
 
 
+def _send_document_via_bot_api(chat_id: str, filename: str, data: bytes, caption: str = "") -> dict[str, Any]:
+    """Send a file to Telegram via Bot API sendDocument (multipart/form-data over HTTPS)."""
+    token = _bot_api_token()
+    if not token:
+        raise BackendConfigError("TELEGRAM_BOT_TOKEN is not set")
+    boundary = "----gatewayboundary" + os.urandom(8).hex()
+    safe_name = (filename or "file").replace('"', "").replace("\r", "").replace("\n", "")
+
+    def part(name: str, value: str) -> bytes:
+        return (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'
+        ).encode("utf-8")
+
+    body = part("chat_id", str(chat_id))
+    if caption:
+        body += part("caption", caption[:1000])
+    body += (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="document"; filename="{safe_name}"\r\n'
+        "Content-Type: application/octet-stream\r\n\r\n"
+    ).encode("utf-8")
+    body += data + f"\r\n--{boundary}--\r\n".encode("utf-8")
+    request = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendDocument",
+        data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        raise BackendRouteError(f"Telegram Bot API sendDocument failed: {exc}") from exc
+    if not result.get("ok"):
+        raise BackendRouteError(f"Telegram Bot API error: {result.get('description', 'unknown')}")
+    return {"ok": True}
+
+
 async def _call_notifications(route: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
     operation = str(route.get("operation", ""))
     if operation != "skill_update.send":

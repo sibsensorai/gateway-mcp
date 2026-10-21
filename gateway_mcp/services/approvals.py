@@ -43,7 +43,30 @@ def _notify_telegram_new_request(approval: dict) -> None:
         text = f"🆕 Новая заявка на одобрение\n{kind}: {name}\n{what}\nОткрыть: {link}"
         _send_via_bot_api(chat_id, text)
     except Exception:
-        pass  # Telegram опционален — не ломаем создание заявки
+        return  # Telegram опционален — не ломаем создание заявки
+    try:
+        import base64
+
+        from gateway_mcp.backends.notifications import _send_document_via_bot_api
+
+        att = payload.get("attachment") if isinstance(payload.get("attachment"), dict) else None
+        if att and att.get("content_base64"):
+            _send_document_via_bot_api(
+                chat_id,
+                str(att.get("filename") or "attachment"),
+                base64.b64decode(att["content_base64"]),
+                caption=f"Вложение к заявке: {name}",
+            )
+        elif not atype.startswith("agent") and str(payload.get("skill_md") or "").strip():
+            safe = "".join(c if c.isalnum() or c in "-_." else "_" for c in name) or "skill"
+            _send_document_via_bot_api(
+                chat_id,
+                f"{safe}.md",
+                str(payload.get("skill_md")).encode("utf-8"),
+                caption=f"Текст навыка: {name}",
+            )
+    except Exception:
+        pass  # файл в чат — необязательное дополнение
 
 
 def create_approval(
