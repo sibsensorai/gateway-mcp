@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from asyncio import to_thread as run_in_threadpool
 from functools import wraps
 from html import escape
+from urllib.parse import quote
 
-from starlette.responses import RedirectResponse
+from starlette.responses import PlainTextResponse, RedirectResponse, Response
 
 from gateway_mcp.config import public_url
 from gateway_mcp.routes.admin_access import _guard, _page
@@ -33,6 +35,32 @@ def _dept_pack(dept: str) -> str:
 
 def _dept_options() -> str:
     return "".join(f"<option>{escape(d)}</option>" for d in DEPTS)
+
+
+_MAX_ATTACH = 5 * 1024 * 1024  # 5 МБ на вложение
+
+
+async def _read_attachment(form):
+    """Достаёт приложенный файл из формы. Возвращает (attachment|None, текст_если_md|'')."""
+    up = form.get("attachment")
+    filename = getattr(up, "filename", "") or ""
+    if not filename:
+        return None, ""
+    try:
+        data = await up.read()
+    except Exception:
+        return None, ""
+    if not data or len(data) > _MAX_ATTACH:
+        return None, ""
+    att_text = ""
+    if filename.lower().endswith((".md", ".markdown", ".txt")):
+        att_text = data.decode("utf-8", errors="replace").strip()
+    attachment = {
+        "filename": filename,
+        "size": len(data),
+        "content_base64": base64.b64encode(data).decode("ascii"),
+    }
+    return attachment, att_text
 
 
 _FORM_CSS = """
@@ -64,13 +92,15 @@ def _new_landing() -> str:
 
 def _skill_form_html() -> str:
     return (
-        '<form method="post" action="/skills/submit" class="sr-form">'
+        '<form method="post" action="/skills/submit" enctype="multipart/form-data" class="sr-form">'
         "<label>Название навыка (напр. it-проверка-vpn)"
         '<input name="name" required maxlength="80"></label>'
         f"<label>Отдел<select name=\"department\">{_dept_options()}</select></label>"
         '<label>Что делает (кратко)<input name="summary" maxlength="200"></label>'
-        "<label>Полный файл навыка (SKILL.md)"
-        '<textarea name="content" rows="18" required placeholder="---&#10;name: it-...&#10;description: ...&#10;---&#10;# ..."></textarea></label>'
+        "<label>Файл навыка или материалы (можно приложить .md, .docx, .zip — до 5 МБ)"
+        '<input type="file" name="attachment"></label>'
+        "<label>Либо вставь текст навыка (SKILL.md) сюда"
+        '<textarea name="content" rows="14" placeholder="---&#10;name: it-...&#10;description: ...&#10;---&#10;# ..."></textarea></label>'
         "<button type=\"submit\">Отправить заявку</button>"
         '<a class="back" href="/skills/new">← назад</a>'
         "</form>"
@@ -79,12 +109,14 @@ def _skill_form_html() -> str:
 
 def _agent_form_html() -> str:
     return (
-        '<form method="post" action="/skills/submit-agent" class="sr-form">'
+        '<form method="post" action="/skills/submit-agent" enctype="multipart/form-data" class="sr-form">'
         "<label>Имя агента (напр. agent-контроль-совещаний)"
         '<input name="slug" required maxlength="80"></label>'
         '<label>Название (для людей)<input name="title" maxlength="120"></label>'
         f"<label>Отдел<select name=\"department\">{_dept_options()}</select></label>"
         '<label>Что делает (кратко)<input name="description" maxlength="200"></label>'
+        "<label>Файл или материалы (необязательно, до 5 МБ)"
+        '<input type="file" name="attachment"></label>'
         "<label>Навыки набора — по одному в строке (имена уже добавленных навыков)"
         '<textarea name="skill_names" rows="8" required placeholder="it-навык-1&#10;it-навык-2"></textarea></label>'
         "<button type=\"submit\">Отправить заявку</button>"
@@ -151,6 +183,15 @@ def _card(appr: dict) -> str:
         content = escape(str(payload.get("skill_md") or files.get("SKILL.md") or ""))
         extra = f"<details><summary>открыть полный файл</summary><pre>{content}</pre></details>" if content else ""
 
+    att = payload.get("attachment") if isinstance(payload.get("attachment"), dict) else None
+    att_html = ""
+    if att and att.get("filename"):
+        kb = round((att.get("size") or 0) / 1024, 1)
+        att_html = (
+            f'<p class="sr-what">📎 Вложение: {escape(str(att.get("filename")))} ({kb} КБ) · '
+            f'<a href="/admin/skill-requests/attachment?id={aid}">скачать</a></p>'
+        )
+
     by = escape(str(appr.get("created_by") or ""))
     created = escape(fmt_time(appr.get("created_at")))
     form = (
@@ -167,6 +208,7 @@ def _card(appr: dict) -> str:
         f"<h3>{name}</h3>"
         f'<p class="sr-what">{what}</p>'
         f"{extra}"
+        f"{att_html}"
         f'<div class="sr-meta">от {by} · {created}</div>'
         f"{form}"
         "</article>"
@@ -360,6 +402,36 @@ def register_skill_requests_routes(mcp):
             )
         return RedirectResponse("/admin/skill-requests", status_code=303)
 
+    @mcp.custom_route("/admin/skill-requests/attachment", methods=["GET"], include_in_schema=False)
+    @_guard
+    async def skill_requests_attachment(request, actor):
+        await run_in_threadpool(require_current_admin, actor)
+        aid = str(request.query_params.get("id", "")).strip()
+        res = await run_in_threadpool(
+            lambda: list_visible_approvals(
+                actor=actor,
+                status="",
+                approval_type="",
+                created_by="",
+                required_role="",
+                assigned_to_me=False,
+                limit=200,
+            )
+        )
+        appr = next((a for a in res.get("approvals", []) if str(a.get("approval_id") or "") == aid), None)
+        payload = appr.get("payload") if appr and isinstance(appr.get("payload"), dict) else {}
+        att = payload.get("attachment") if isinstance(payload.get("attachment"), dict) else None
+        if not att or not att.get("content_base64"):
+            return PlainTextResponse("Вложение не найдено.", status_code=404)
+        try:
+            data = base64.b64decode(att["content_base64"])
+        except Exception:
+            return PlainTextResponse("Повреждённое вложение.", status_code=500)
+        filename = str(att.get("filename") or "attachment")
+        resp = Response(content=data, media_type="application/octet-stream")
+        resp.headers["Content-Disposition"] = "attachment; filename*=UTF-8''" + quote(filename)
+        return resp
+
     @mcp.custom_route("/me", methods=["GET"], include_in_schema=False)
     @_user_guard
     async def me_home(request, actor):
@@ -405,6 +477,9 @@ def register_skill_requests_routes(mcp):
         dept = str(form.get("department", "")).strip()
         summary = str(form.get("summary", "")).strip()
         content = str(form.get("content", "")).strip()
+        attachment, att_text = await _read_attachment(form)
+        if not content and att_text:
+            content = att_text
         if name and content:
             payload = {
                 "skill_name": name,
@@ -413,6 +488,8 @@ def register_skill_requests_routes(mcp):
                 "skill_pack": _dept_pack(dept),
                 "skill_md": content,
             }
+            if attachment:
+                payload["attachment"] = attachment
             await run_in_threadpool(
                 lambda: create_approval(
                     actor=actor,
@@ -446,11 +523,14 @@ def register_skill_requests_routes(mcp):
         dept = str(form.get("department", "")).strip()
         raw = str(form.get("skill_names", ""))
         names = [s.strip() for s in raw.replace(",", "\n").splitlines() if s.strip()]
+        attachment, _ = await _read_attachment(form)
         if slug and names:
             payload = {
                 "agent": {"slug": slug, "title": title or slug, "description": desc, "department": dept},
                 "skill_names": names,
             }
+            if attachment:
+                payload["attachment"] = attachment
             await run_in_threadpool(
                 lambda: create_approval(
                     actor=actor,
