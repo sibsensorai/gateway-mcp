@@ -99,13 +99,21 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset
 .l-glow{background:
   radial-gradient(38% 30% at 72% 22%,rgba(214,207,150,.20),transparent 70%),
   radial-gradient(34% 28% at 18% 70%,rgba(143,179,201,.16),transparent 70%)}
-.l-rings svg{position:absolute;right:-6%;top:4%;width:min(78vw,980px);height:auto;opacity:.5}
-.l-shards span{position:absolute;border-radius:50%;filter:blur(1px);
-  background:radial-gradient(circle at 30% 30%,#f4f6f2,#9aa7b4 38%,#3a434d 70%,#15191e);box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.l-shards span:nth-child(1){width:120px;height:120px;left:8%;top:16%;opacity:.55}
-.l-shards span:nth-child(2){width:46px;height:46px;left:62%;top:62%;opacity:.7}
-.l-shards span:nth-child(3){width:220px;height:220px;left:80%;top:72%;opacity:.25;filter:blur(6px)}
-.l-shards span:nth-child(4){width:22px;height:22px;left:36%;top:28%;opacity:.8}
+.l-net svg{position:absolute;right:4%;top:12%;width:min(60vw,820px);height:auto;opacity:.5}
+.l-net .pulse{stroke:var(--acc);stroke-width:1.6;stroke-dasharray:10 260;animation:flow 4.5s linear infinite}
+.l-net .pulse:nth-of-type(2n){animation-duration:6s;stroke:var(--acc2)}
+.l-net .pulse:nth-of-type(3n){animation-delay:-2s}
+@keyframes flow{to{stroke-dashoffset:-270}}
+.l-circuit svg{position:absolute;left:0;bottom:6%;width:min(62vw,820px);height:auto;opacity:.32}
+.l-tokens span{position:absolute;font-family:var(--mono);font-size:14px;letter-spacing:.04em;color:rgba(214,207,150,.62);
+  padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:rgba(18,22,28,.55);backdrop-filter:blur(4px);white-space:nowrap}
+.l-tokens span:nth-child(1){left:7%;top:20%}
+.l-tokens span:nth-child(2){left:56%;top:12%;color:rgba(143,179,201,.7)}
+.l-tokens span:nth-child(3){left:14%;top:62%;color:rgba(143,179,201,.7)}
+.l-tokens span:nth-child(4){left:68%;top:78%}
+.l-tokens span:nth-child(5){left:40%;top:86%;opacity:.7}
+.l-tokens span:nth-child(6){left:88%;top:44%;opacity:.7}
+.l-chip svg{position:absolute;left:13%;top:58%;width:130px;height:130px;opacity:.5}
 .page{position:relative;z-index:1}
 .top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;
   padding:14px clamp(16px,4vw,48px);background:linear-gradient(var(--bg),rgba(12,14,17,.6));backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
@@ -176,32 +184,68 @@ h1 em{font-style:normal;background:linear-gradient(120deg,var(--acc),#f3eec9 45%
 .js .rv{opacity:0;transform:translateY(28px);transition:opacity .9s cubic-bezier(.16,1,.3,1),transform .9s cubic-bezier(.16,1,.3,1)}
 .js .rv.in{opacity:1;transform:none}
 @media (max-width:980px){.tiles,.admin .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.caps{grid-template-columns:repeat(2,minmax(0,1fr))}.connect{grid-template-columns:1fr}}
-@media (max-width:620px){.tiles,.admin .tiles,.caps{grid-template-columns:1fr}.who .name,.live span{display:none}.live{padding:8px}.brand{font-size:12px}.hero{padding:48px 0 64px}.panel{padding:24px}.sec{padding:64px 0}}
+@media (max-width:620px){.tiles,.admin .tiles,.caps{grid-template-columns:1fr}.who .name,.live span,.l-chip,.l-tokens{display:none}.live{padding:8px}.brand{font-size:12px}.hero{padding:48px 0 64px}.panel{padding:24px}.sec{padding:64px 0}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.js .rv{opacity:1;transform:none}.layer{transform:none!important}}
 """
 
-_RINGS = (
-    '<svg viewBox="0 0 600 600" aria-hidden="true"><defs>'
-    '<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9ece6"/>'
-    '<stop offset=".5" stop-color="#8d99a5"/><stop offset="1" stop-color="#2a3138"/></linearGradient></defs>'
-    '<g fill="none" stroke="url(#g)">'
-    '<circle cx="300" cy="300" r="290" stroke-width=".6" stroke-dasharray="2 10"/>'
-    '<circle cx="300" cy="300" r="230" stroke-width="1"/>'
-    '<circle cx="300" cy="300" r="170" stroke-width=".6" stroke-dasharray="40 14"/>'
-    '<circle cx="300" cy="300" r="110" stroke-width="1.4"/>'
-    '<circle cx="300" cy="300" r="50" stroke-width=".8"/>'
-    '<path d="M300 0v600M0 300h600" stroke-width=".4" stroke-dasharray="3 9"/>'
+def _net_svg() -> str:
+    """Нейросеть: слои узлов, связи между соседними слоями, по части связей бегут импульсы."""
+    cols = [(70, [150, 270, 390, 510]), (230, [90, 210, 330, 450, 570]), (390, [150, 270, 390, 510]), (540, [240, 360])]
+    lines, pulses, nodes = [], [], []
+    for (x1, ys1), (x2, ys2) in zip(cols, cols[1:]):
+        for i, y1 in enumerate(ys1):
+            for j, y2 in enumerate(ys2):
+                lines.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}"/>')
+                if (i + 2 * j) % 5 == 0:
+                    pulses.append(f'<line class="pulse" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}"/>')
+    for n, (x, ys) in enumerate(cols):
+        for k, y in enumerate(ys):
+            hot = (n + k) % 3 == 0
+            fill = "#d6cf96" if hot else "#12151a"
+            nodes.append(f'<circle cx="{x}" cy="{y}" r="{9 if hot else 7}" fill="{fill}" stroke="url(#ng)" stroke-width="1.6"/>')
+    return (
+        '<svg viewBox="0 0 610 660" aria-hidden="true"><defs>'
+        '<linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef0ec"/>'
+        '<stop offset="1" stop-color="#6f7c89"/></linearGradient></defs>'
+        f'<g stroke="rgba(170,185,200,.22)" stroke-width="1">{"".join(lines)}</g>'
+        f'<g fill="none" stroke-linecap="round">{"".join(pulses)}</g>'
+        f'<g>{"".join(nodes)}</g></svg>'
+    )
+
+
+_CIRCUIT = (
+    '<svg viewBox="0 0 800 360" aria-hidden="true"><g fill="none" stroke="#9aa7b4" stroke-width="1.4">'
+    '<path d="M0 60H180L220 100H420"/><path d="M0 120H120L160 160H360L400 200H620"/>'
+    '<path d="M0 200H90L130 240H300"/><path d="M0 280H240L280 240H520L560 280H780"/>'
+    '<path d="M60 360V320L100 280"/><path d="M420 100V40H560"/><path d="M620 200V140H720"/>'
+    '</g><g fill="#12151a" stroke="#d6cf96" stroke-width="1.6">'
+    '<circle cx="420" cy="100" r="6"/><circle cx="620" cy="200" r="6"/><circle cx="300" cy="240" r="6"/>'
+    '<circle cx="780" cy="280" r="6"/><circle cx="560" cy="40" r="6"/><circle cx="720" cy="140" r="6"/>'
     "</g></svg>"
 )
 
+_CHIP = (
+    '<svg viewBox="0 0 150 150" aria-hidden="true"><g stroke="#9aa7b4" stroke-width="2" stroke-linecap="round">'
+    + "".join(f'<path d="M{p} 8V26M{p} 124V142M8 {p}H26M124 {p}H142"/>' for p in (45, 65, 85, 105))
+    + '</g><rect x="28" y="28" width="94" height="94" rx="14" fill="#12151a" stroke="#c9ced3" stroke-width="2"/>'
+    '<rect x="40" y="40" width="70" height="70" rx="8" fill="none" stroke="rgba(214,207,150,.6)"/>'
+    '<text x="75" y="84" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="26" '
+    'font-weight="700" fill="#d6cf96">AI</text></svg>'
+)
+
+_TOKENS = ("&lt;/&gt;", "MCP://core", "skills.list()", "agent.run()", "01001011", "API")
+
 
 def _scene() -> str:
+    tokens = "".join(f"<span>{t}</span>" for t in _TOKENS)
     return (
         '<div class="scene" aria-hidden="true">'
         '<div class="layer l-glow" data-depth="0.15"></div>'
         '<div class="layer l-grid" data-depth="0.3"></div>'
-        f'<div class="layer l-rings" data-depth="0.6">{_RINGS}</div>'
-        '<div class="layer l-shards" data-depth="1.1"><span></span><span></span><span></span><span></span></div>'
+        f'<div class="layer l-circuit" data-depth="0.45">{_CIRCUIT}</div>'
+        f'<div class="layer l-net" data-depth="0.7">{_net_svg()}</div>'
+        f'<div class="layer l-chip" data-depth="0.95">{_CHIP}</div>'
+        f'<div class="layer l-tokens" data-depth="1.2">{tokens}</div>'
         "</div>"
     )
 
