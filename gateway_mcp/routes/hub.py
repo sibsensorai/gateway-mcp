@@ -108,6 +108,34 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--blue);outline-offse
 .dots{position:absolute;inset:-10%;background:radial-gradient(#c3d4ee 1.1px,transparent 1.6px) 0 0/24px 24px;
   -webkit-mask:radial-gradient(ellipse 70% 55% at 70% 20%,#000 0,transparent 75%);mask:radial-gradient(ellipse 70% 55% at 70% 20%,#000 0,transparent 75%);opacity:.8}
 
+.circuit{position:absolute;inset:-6%}
+.circuit svg{width:100%;height:100%}
+.trace{fill:none;stroke:#c3d5f0;stroke-width:1.8}
+.sig{fill:none;stroke:#1d6ef0;stroke-width:2.6;stroke-linecap:round;stroke-dasharray:18 900;animation:sig 6s linear infinite}
+.sig:nth-of-type(3n){stroke:#14a7e6;animation-duration:8s}
+.sig:nth-of-type(4n){animation-delay:-3s}
+.sig:nth-of-type(5n){animation-duration:10s;animation-delay:-5s}
+.sig:nth-of-type(2n){animation-delay:-1.5s}
+@keyframes sig{from{stroke-dashoffset:18}to{stroke-dashoffset:-918}}
+.via{fill:#fff;stroke:#8fb4ee;stroke-width:2.2}
+.chipw{position:absolute;width:132px;height:132px;will-change:transform}
+.chipw svg{position:relative;display:block;width:100%;height:100%}
+.chipw .halo{position:absolute;inset:20%;border-radius:18px;animation:halo 3.4s ease-out infinite}
+.chipw.c2 .halo{animation-delay:-1.2s}.chipw.c3 .halo{animation-delay:-2.3s}
+@keyframes halo{0%{box-shadow:0 0 0 0 rgba(29,110,240,.32)}100%{box-shadow:0 0 0 26px rgba(29,110,240,0)}}
+.chipw.c1{left:1%;top:64%;width:112px;height:112px}
+.chipw.c2{right:1.5%;top:76%;width:140px;height:140px}
+.chipw.c3{left:43%;top:10%;width:92px;height:92px;opacity:.8}
+.tok{position:absolute;inset:0;will-change:transform}
+.tok span{position:absolute;font-family:var(--mono);font-size:13px;color:#1559c7;padding:7px 12px;border-radius:9px;
+  background:rgba(255,255,255,.8);border:1px solid var(--line2);box-shadow:0 6px 16px rgba(16,40,90,.06);white-space:nowrap}
+.tok span:nth-child(1){left:3%;top:24%}
+.tok span:nth-child(2){left:52%;top:18%}
+.tok span:nth-child(3){left:20%;top:93%}
+.tok span:nth-child(4){left:64%;top:90%}
+.tok span:nth-child(5){left:91%;top:28%}
+.tok span:nth-child(6){left:2%;top:84%;opacity:.85}
+
 .page{position:relative;z-index:1}
 .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;
   padding:14px clamp(16px,4vw,48px);background:rgba(255,255,255,.78);backdrop-filter:blur(14px) saturate(1.4);border-bottom:1px solid var(--line)}
@@ -179,7 +207,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,var(--blue) 10%,var(--
 
 /* секции */
 .sec{padding:96px 0}
-.sec.alt{background:var(--paper);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.sec.alt{background:rgba(255,255,255,.66);backdrop-filter:blur(3px);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .sec-h{display:grid;grid-template-columns:1fr auto;align-items:end;gap:24px;margin-bottom:40px}
 .label{display:block;color:var(--blue);font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px}
 .sec-h h2{margin:0;font-size:clamp(30px,3.8vw,46px);line-height:1.05;font-weight:780;letter-spacing:-.03em}
@@ -249,6 +277,7 @@ h1 em{font-style:normal;background:linear-gradient(100deg,var(--blue) 10%,var(--
   .tiles,.caps,.admin-tiles{grid-template-columns:1fr}
   .sec-h{grid-template-columns:1fr}
   .who .name,.live span{display:none}.live{padding:8px}
+  .chipw.c2,.chipw.c3,.tok span:nth-child(n+3){display:none}.chipw.c1{left:auto;right:4%;top:44%;width:96px;height:96px;opacity:.6}
   .visual{height:400px}.f3,.f4{display:none}.f1{left:0;top:2%}.f2{right:0;top:auto;bottom:4%}
   .stats{display:grid;grid-template-columns:1fr 1fr;gap:18px}.stat,.stat:first-child{padding:0;border:0}.stat b{font-size:24px}
   .panel,.admin-box{padding:22px}
@@ -316,13 +345,64 @@ def _visual(*, skills: int, logged_in: bool) -> str:
     )
 
 
+# Дорожки платы: начинаются от краёв экрана и уходят внутрь, на концах — переходные отверстия.
+_TRACES = (
+    ("M0 140H220L260 180H420", (420, 180)),
+    ("M0 230H160L200 270H330L360 300H520", (520, 300)),
+    ("M0 520H120L170 470H300", (300, 470)),
+    ("M0 610H240L280 650H360", (360, 650)),
+    ("M0 770H200L240 810H460L500 770H640", (640, 770)),
+    ("M0 890H340L380 930H560", (560, 930)),
+    ("M1600 120H1380L1340 160H1180", (1180, 160)),
+    ("M1600 300H1460L1420 260H1300L1260 300H1120", (1120, 300)),
+    ("M1600 470H1500L1460 510H1240", (1240, 510)),
+    ("M1600 700H1420L1380 740H1200L1160 700H1020", (1020, 700)),
+    ("M1600 870H1300L1260 830H1100", (1100, 830)),
+    ("M780 1000V880L820 840V760", (820, 760)),
+    ("M980 0V90L940 130V210", (940, 210)),
+    ("M1240 1000V940L1200 900V860", (1200, 860)),
+)
+
+_TOKENS = ("&lt;/&gt;", "MCP://core", "skills.list()", "POST /mcp", "01001011", "200 OK")
+
+
+def _circuit_svg() -> str:
+    traces = "".join(f'<path class="trace" d="{d}"/>' for d, _ in _TRACES)
+    signals = "".join(f'<path class="sig" d="{d}"/>' for d, _ in _TRACES)
+    vias = "".join(f'<circle class="via" cx="{x}" cy="{y}" r="6"/>' for _, (x, y) in _TRACES)
+    return (
+        '<svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+        f"<g>{traces}</g><g>{signals}</g><g>{vias}</g></svg>"
+    )
+
+
+def _chip_svg(label: str) -> str:
+    pins = "".join(f'<path d="M{p} 8V26M{p} 124V142M8 {p}H26M124 {p}H142"/>' for p in (45, 65, 85, 105))
+    return (
+        '<svg viewBox="0 0 150 150" aria-hidden="true">'
+        f'<g stroke="#9dbbeb" stroke-width="2.4" stroke-linecap="round">{pins}</g>'
+        '<rect x="28" y="28" width="94" height="94" rx="16" fill="#fff" stroke="#1d6ef0" stroke-width="2.2"/>'
+        '<rect x="40" y="40" width="70" height="70" rx="10" fill="#eef4ff" stroke="#c9d9f1"/>'
+        '<text x="75" y="84" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="22" '
+        f'font-weight="800" fill="#1d6ef0">{label}</text></svg>'
+    )
+
+
 def _background() -> str:
+    chips = "".join(
+        f'<div class="chipw {cls}" data-depth="{depth}"><span class="halo"></span>{_chip_svg(label)}</div>'
+        for cls, label, depth in (("c1", "AI", "0.9"), ("c2", "MCP", "1.15"), ("c3", "API", "0.6"))
+    )
+    tokens = "".join(f"<span>{t}</span>" for t in _TOKENS)
     return (
         '<div class="bg" aria-hidden="true">'
-        '<div class="dots" data-depth="0.15"></div>'
         '<div class="blob b1" data-depth="0.35"></div>'
         '<div class="blob b2" data-depth="0.5"></div>'
         '<div class="blob b3" data-depth="0.3"></div>'
+        '<div class="dots" data-depth="0.15"></div>'
+        f'<div class="circuit" data-depth="0.4">{_circuit_svg()}</div>'
+        f"{chips}"
+        f'<div class="tok" data-depth="1.3">{tokens}</div>'
         "</div>"
     )
 
