@@ -85,233 +85,193 @@ def _icon(name: str, cls: str = "ico") -> str:
 
 _CSS = """
 :root{
-  --bg:#f5f8fd;--paper:#ffffff;--tint:#eef4ff;--chip:#e8f1ff;
-  --ink:#0c1a33;--soft:#46566e;--mute:#7a89a0;--line:#e2e9f4;--line2:#c9d9f1;
-  --blue:#1d6ef0;--blue-d:#1559c7;--sky:#14a7e6;--ok:#13a06a;
-  --sh:0 1px 2px rgba(16,40,90,.05),0 10px 28px rgba(16,40,90,.07);
-  --sh-lg:0 2px 6px rgba(16,40,90,.05),0 28px 64px rgba(22,70,160,.16);
+  --bg:#050505;--bg2:#0b0b0b;--card:#0e0e0e;--card2:#131313;
+  --ink:#ffffff;--txt:#d6d6d6;--soft:#a3a3a3;--mute:#737373;
+  --line:#1f1f1f;--line2:#2c2c2c;
+  --sun:#ff5a1f;--sun2:#ff8a3d;--sun-soft:rgba(255,90,31,.14);--ok:#22c55e;
   --font:"Segoe UI Variable Display","Segoe UI",Inter,system-ui,-apple-system,Roboto,Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow-x:clip}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--font);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:clip}
 a{color:inherit}
-a:focus-visible,button:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:10px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--sun2);outline-offset:3px;border-radius:10px}
 
-/* фон: мягкие голубые пятна и точечная сетка, двигаются медленно */
+/* фон: «солнце» за контентом, горизонт, едва заметная сетка */
 .bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.blob{position:absolute;border-radius:50%;filter:blur(60px);will-change:transform}
-.blob.b1{width:620px;height:620px;right:-160px;top:-180px;background:radial-gradient(circle,#cfe2ff 0,#cfe2ff00 70%)}
-.blob.b2{width:520px;height:520px;left:-200px;top:38%;background:radial-gradient(circle,#d4f1fd 0,#d4f1fd00 70%)}
-.blob.b3{width:460px;height:460px;right:12%;bottom:-220px;background:radial-gradient(circle,#e3e4ff 0,#e3e4ff00 70%)}
-.dots{position:absolute;inset:-10%;background:radial-gradient(#c3d4ee 1.1px,transparent 1.6px) 0 0/24px 24px;
-  -webkit-mask:radial-gradient(ellipse 70% 55% at 70% 20%,#000 0,transparent 75%);mask:radial-gradient(ellipse 70% 55% at 70% 20%,#000 0,transparent 75%);opacity:.8}
-
-.circuit{position:absolute;inset:-6%}
-.circuit svg{width:100%;height:100%}
-.trace{fill:none;stroke:#c3d5f0;stroke-width:1.8}
-.sig{fill:none;stroke:#1d6ef0;stroke-width:2.6;stroke-linecap:round;stroke-dasharray:18 900;animation:sig 6s linear infinite}
-.sig:nth-of-type(3n){stroke:#14a7e6;animation-duration:8s}
-.sig:nth-of-type(4n){animation-delay:-3s}
-.sig:nth-of-type(5n){animation-duration:10s;animation-delay:-5s}
-.sig:nth-of-type(2n){animation-delay:-1.5s}
-@keyframes sig{from{stroke-dashoffset:18}to{stroke-dashoffset:-918}}
-.via{fill:#fff;stroke:#8fb4ee;stroke-width:2.2}
-.chipw{position:absolute;width:132px;height:132px;will-change:transform}
-.chipw svg{position:relative;display:block;width:100%;height:100%}
-.chipw .halo{position:absolute;inset:20%;border-radius:18px;animation:halo 3.4s ease-out infinite}
-.chipw.c2 .halo{animation-delay:-1.2s}.chipw.c3 .halo{animation-delay:-2.3s}
-@keyframes halo{0%{box-shadow:0 0 0 0 rgba(29,110,240,.32)}100%{box-shadow:0 0 0 26px rgba(29,110,240,0)}}
-.chipw.c1{left:1%;top:64%;width:112px;height:112px}
-.chipw.c2{right:1.5%;top:76%;width:140px;height:140px}
-.chipw.c3{left:43%;top:10%;width:92px;height:92px;opacity:.8}
-.tok{position:absolute;inset:0;will-change:transform}
-.tok span{position:absolute;font-family:var(--mono);font-size:13px;color:#1559c7;padding:7px 12px;border-radius:9px;
-  background:rgba(255,255,255,.8);border:1px solid var(--line2);box-shadow:0 6px 16px rgba(16,40,90,.06);white-space:nowrap}
-.tok span:nth-child(1){left:3%;top:24%}
-.tok span:nth-child(2){left:52%;top:18%}
-.tok span:nth-child(3){left:20%;top:93%}
-.tok span:nth-child(4){left:64%;top:90%}
-.tok span:nth-child(5){left:91%;top:28%}
-.tok span:nth-child(6){left:2%;top:84%;opacity:.85}
+.grid{position:absolute;inset:-5%;background:
+  linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/72px 72px,
+  linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/72px 72px;
+  -webkit-mask:radial-gradient(ellipse 80% 60% at 50% 0%,#000,transparent 75%);mask:radial-gradient(ellipse 80% 60% at 50% 0%,#000,transparent 75%)}
+.sun{position:absolute;left:50%;top:-38vh;width:120vw;height:90vh;margin-left:-60vw;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,106,31,.55),rgba(255,70,20,.22) 45%,transparent 72%);filter:blur(30px);
+  animation:breathe 9s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.78}}
+.horizon{position:absolute;left:10%;right:10%;top:22vh;height:1px;background:linear-gradient(90deg,transparent,rgba(255,138,61,.7),transparent);box-shadow:0 0 24px 2px rgba(255,90,31,.45)}
 
 .page{position:relative;z-index:1}
 .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding:14px clamp(16px,4vw,48px);background:rgba(255,255,255,.78);backdrop-filter:blur(14px) saturate(1.4);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font-weight:700;font-size:16px;letter-spacing:-.01em}
-.brand b{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;color:#fff;font-size:16px;
-  background:linear-gradient(135deg,var(--sky),var(--blue));box-shadow:0 6px 16px rgba(29,110,240,.35)}
-.brand small{display:block;color:var(--mute);font-weight:500;font-size:12px;letter-spacing:0}
-.who{display:flex;align-items:center;gap:14px;font-size:14px;color:var(--soft)}
-.live{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:6px 12px;border-radius:999px;background:#e9f8f1;color:#0f7a51;font-size:13px;font-weight:600}
-.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(19,160,106,.5);animation:ping 2.4s infinite}
-@keyframes ping{0%{box-shadow:0 0 0 0 rgba(19,160,106,.45)}70%{box-shadow:0 0 0 9px rgba(19,160,106,0)}100%{box-shadow:0 0 0 0 rgba(19,160,106,0)}}
-.out{color:var(--mute);text-decoration:none;font-size:14px}.out:hover{color:var(--blue)}
+  padding:14px clamp(16px,4vw,48px);background:rgba(5,5,5,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;font-weight:750;font-size:17px;color:var(--ink);letter-spacing:-.01em}
+.brand b{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:#fff;font-size:15px;
+  background:linear-gradient(135deg,var(--sun2),var(--sun));box-shadow:0 0 22px rgba(255,90,31,.45)}
+.brand em{font-style:normal;color:var(--sun2)}
+.who{display:flex;align-items:center;gap:14px;font-size:15px;color:var(--soft)}
+.live{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;padding:6px 12px;border-radius:999px;border:1px solid var(--line2);color:var(--txt);font-size:13px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.out{color:var(--soft);text-decoration:none}.out:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:10px;min-height:50px;padding:0 22px;border-radius:12px;font-weight:650;font-size:16px;text-decoration:none;
+  transition:transform .25s cubic-bezier(.16,1,.3,1),box-shadow .25s,background .2s,border-color .2s}
+.btn .ico{width:18px;height:18px}
+.btn:hover{transform:translateY(-2px)}
+.btn.main{background:linear-gradient(180deg,var(--sun2),var(--sun));color:#fff;box-shadow:0 8px 28px rgba(255,90,31,.38),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn.main:hover{box-shadow:0 12px 36px rgba(255,90,31,.5),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn.ghost{background:rgba(255,255,255,.03);color:var(--ink);border:1px solid var(--line2)}
+.btn.ghost:hover{border-color:var(--sun)}
+.btn.sm{min-height:38px;padding:0 16px;font-size:14px}
 
 .wrap{max-width:1200px;margin:0 auto;padding:0 clamp(16px,4vw,48px)}
 
 /* первый экран */
-.hero{padding:72px 0 88px}
-.hero .wrap{display:grid;grid-template-columns:1.02fr .98fr;gap:56px;align-items:center;min-height:calc(100vh - 230px)}
-.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:var(--chip);color:var(--blue-d);font-size:13px;font-weight:650}
-.pill i{width:7px;height:7px;border-radius:50%;background:var(--blue)}
-h1{margin:22px 0 0;font-size:clamp(46px,6.6vw,88px);line-height:.98;font-weight:800;letter-spacing:-.04em;color:var(--ink)}
-h1 em{font-style:normal;background:linear-gradient(100deg,var(--blue) 10%,var(--sky) 90%);-webkit-background-clip:text;background-clip:text;color:transparent}
-.lead{max-width:560px;margin:24px 0 0;font-size:clamp(17px,1.6vw,20px);line-height:1.55;color:var(--soft)}
+.hero{padding:80px 0 40px}
+.hero-txt{text-align:center;max-width:860px;margin:0 auto}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;border:1px solid rgba(255,138,61,.4);background:rgba(255,90,31,.08);color:var(--sun2);font-size:14px;font-weight:600}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--sun2);box-shadow:0 0 10px var(--sun2)}
+h1{margin:22px 0 0;font-size:clamp(44px,7vw,92px);line-height:1;font-weight:800;letter-spacing:-.04em;color:var(--ink)}
+h1 em{font-style:normal;background:linear-gradient(180deg,#ffb27a,var(--sun) 80%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 24px rgba(255,90,31,.35))}
+.lead{max-width:640px;margin:24px auto 0;font-size:clamp(18px,1.7vw,21px);line-height:1.55;color:var(--txt)}
 .lead strong{color:var(--ink);font-weight:650}
-.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
-.btn{display:inline-flex;align-items:center;gap:10px;min-height:52px;padding:0 24px;border-radius:14px;font-weight:650;font-size:16px;text-decoration:none;
-  transition:transform .25s cubic-bezier(.16,1,.3,1),box-shadow .25s,background .2s,border-color .2s}
-.btn .ico{width:18px;height:18px}
-.btn:hover{transform:translateY(-2px)}
-.btn.main{background:var(--blue);color:#fff;box-shadow:0 10px 26px rgba(29,110,240,.32)}
-.btn.main:hover{background:var(--blue-d);box-shadow:0 14px 32px rgba(29,110,240,.4)}
-.btn.ghost{background:var(--paper);color:var(--ink);border:1px solid var(--line2);box-shadow:var(--sh)}
-.btn.ghost:hover{border-color:var(--blue)}
-.stats{display:flex;flex-wrap:wrap;margin-top:44px;border-top:1px solid var(--line);padding-top:24px;gap:0}
-.stat{padding:0 28px;border-left:1px solid var(--line)}
-.stat:first-child{padding-left:0;border-left:0}
-.stat b{display:block;font-size:30px;font-weight:750;letter-spacing:-.02em;color:var(--ink)}
-.stat span{color:var(--mute);font-size:14px}
+.cta{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:32px}
 
-/* визуал справа: карточка ядра и плавающие плашки */
-.visual{position:relative;height:540px}
-.core{position:absolute;left:50%;top:50%;width:min(440px,92%);margin-left:calc(min(440px,92%) / -2);margin-top:-210px;
-  background:var(--paper);border:1px solid var(--line);border-radius:26px;box-shadow:var(--sh-lg);padding:18px}
-.core-h{display:flex;align-items:center;justify-content:space-between;padding:2px 4px 14px}
-.core-h .dots3{display:flex;gap:6px}
-.core-h .dots3 span{width:10px;height:10px;border-radius:50%;background:#dbe5f3}
-.core-h .t{font-size:13px;font-weight:650;color:var(--soft)}
-.core-h .t i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:1px}
-.net{border-radius:18px;background:linear-gradient(180deg,#f3f8ff,#eaf2ff);border:1px solid var(--line);padding:8px}
-.net svg{display:block;width:100%;height:auto}
-.net .pulse{stroke-width:2;stroke-dasharray:10 260;animation:flow 4.2s linear infinite}
-.net .pulse.p2{animation-duration:5.6s}
-.net .pulse.p3{animation-delay:-2s}
+/* витрина: дашборд ядра, выпрямляется при прокрутке (--p от 0 до 1) */
+.stage{position:relative;margin:64px auto 0;max-width:1060px;perspective:1600px}
+.stage:before{content:"";position:absolute;left:8%;right:8%;top:-40px;height:160px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,90,31,.55),transparent);filter:blur(40px);opacity:calc(.5 + .5 * var(--p,1))}
+.dash{--p:1;position:relative;transform-origin:50% 0;
+  transform:rotateX(calc((1 - var(--p)) * 24deg)) scale(calc(.9 + .1 * var(--p))) translateY(calc((1 - var(--p)) * 30px));
+  border-radius:20px;background:linear-gradient(180deg,#121212,#0a0a0a);border:1px solid var(--line2);
+  box-shadow:0 -1px 0 rgba(255,138,61,.6),0 0 0 1px rgba(255,90,31,.12),0 40px 120px rgba(0,0,0,.8),0 0 80px rgba(255,90,31,.18);overflow:hidden}
+.dash:after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.07) 45%,transparent 60%);
+  transform:translateX(calc((var(--p) - .5) * 120%))}
+.dbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.dbar span{width:11px;height:11px;border-radius:50%;background:#2a2a2a}
+.dbar .t{margin-left:10px;font-size:13px;color:var(--soft)}
+.dbar .t i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:6px;box-shadow:0 0 8px var(--ok)}
+.dbody{display:grid;grid-template-columns:210px 1fr;min-height:420px}
+.dside{border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:4px}
+.dside .si{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--soft);text-decoration:none;font-size:14px}
+.dside .si .ico{width:17px;height:17px}
+.dside .si.on{background:rgba(255,90,31,.12);color:var(--ink)}
+.dside .si.on .ico{color:var(--sun2)}
+.dside a.si:hover{color:var(--ink)}
+.dmain{padding:22px;display:grid;gap:16px;align-content:start}
+.dmain h4{margin:0;font-size:18px;color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.kpi{padding:14px 16px;border-radius:12px;background:var(--card2);border:1px solid var(--line)}
+.kpi small{display:block;color:var(--mute);font-size:12px}
+.kpi b{display:block;margin-top:4px;font-size:22px;color:var(--ink);font-weight:750}
+.kpi b.ok{color:var(--ok)}
+.dgrid{display:grid;grid-template-columns:1.3fr 1fr;gap:12px}
+.dpanel{padding:16px;border-radius:12px;background:var(--card2);border:1px solid var(--line)}
+.dpanel small{display:block;color:var(--mute);font-size:12px;margin-bottom:10px}
+.srow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px;color:var(--txt)}
+.srow:first-of-type{border-top:0}
+.srow .dot{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:rgba(255,90,31,.12);color:var(--sun2);flex:none}
+.srow .dot .ico{width:15px;height:15px}
+.srow span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow em{margin-left:auto;font-style:normal;font-size:12px;color:var(--ok)}
+.graph .net{display:block;width:100%;height:auto;max-height:300px}
+.net .links line{stroke:rgba(255,138,61,.16);stroke-width:1.1}
+.net .pulses line{stroke:#ffb27a;stroke-width:2.2;stroke-linecap:round;stroke-dasharray:10 260;animation:flow 4.2s linear infinite;filter:drop-shadow(0 0 4px rgba(255,90,31,.9))}
+.net .pulses line.p2{stroke:#ff5a1f;animation-duration:5.6s}
+.net .pulses line.p3{animation-delay:-2s}
 @keyframes flow{to{stroke-dashoffset:-270}}
-.core-f{display:flex;gap:8px;padding:14px 4px 2px;flex-wrap:wrap}
-.core-f span{font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:8px;background:var(--tint);color:var(--blue-d)}
-.fchip{position:absolute;will-change:transform}
-.fchip .card{display:flex;align-items:center;gap:12px;padding:12px 16px 12px 12px;border-radius:16px;background:rgba(255,255,255,.92);
-  border:1px solid var(--line);box-shadow:var(--sh-lg);backdrop-filter:blur(8px);animation:bob 6s ease-in-out infinite;white-space:nowrap}
-.fchip:nth-child(3) .card{animation-delay:-1.5s}.fchip:nth-child(4) .card{animation-delay:-3s}.fchip:nth-child(5) .card{animation-delay:-4.5s}
-@keyframes bob{50%{transform:translateY(-8px)}}
-.fchip .ic{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:var(--chip);color:var(--blue)}
-.fchip .ic .ico{width:20px;height:20px}
-.fchip small{display:block;color:var(--mute);font-size:12px}
-.fchip strong{display:block;font-size:15px;font-weight:700;color:var(--ink)}
-.fchip code{font-family:var(--mono);font-size:13px;color:var(--blue-d)}
-.fchip .okc{color:var(--ok);font-weight:700}
-.f1{left:-4%;top:6%}.f2{right:-6%;top:20%}.f3{left:0;bottom:6%}.f4{right:-2%;bottom:14%}
+.net .nodes circle{fill:#0e0e0e;stroke:#ff8a3d;stroke-width:1.8}
+.net .nodes circle.hot{fill:#ff5a1f;stroke:#ffd2b0;stroke-width:2;filter:drop-shadow(0 0 6px rgba(255,90,31,.9));animation:node 2.8s ease-in-out infinite}
+.net .nodes circle.hot:nth-child(3n){animation-delay:-1.2s}
+@keyframes node{50%{opacity:.55}}
 
-/* секции */
-.sec{padding:96px 0}
-.sec.alt{background:rgba(255,255,255,.66);backdrop-filter:blur(3px);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.sec-h{display:grid;grid-template-columns:1fr auto;align-items:end;gap:24px;margin-bottom:40px}
-.label{display:block;color:var(--blue);font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:12px}
-.sec-h h2{margin:0;font-size:clamp(30px,3.8vw,46px);line-height:1.05;font-weight:780;letter-spacing:-.03em}
-.sec-h p{margin:0;max-width:400px;color:var(--soft);line-height:1.55}
+/* секции: «наезд» при прокрутке */
+.sec{padding:110px 0}
+.zoom{--p:1;transform:scale(calc(.93 + .07 * var(--p)));opacity:calc(.25 + .75 * var(--p));transform-origin:50% 0}
+.sec-h{text-align:center;max-width:720px;margin:0 auto 48px}
+.label{display:inline-block;color:var(--sun2);font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-bottom:14px}
+.sec-h h2{margin:0;font-size:clamp(32px,4.4vw,54px);line-height:1.05;font-weight:780;letter-spacing:-.03em;color:var(--ink)}
+.sec-h p{margin:16px auto 0;max-width:560px;color:var(--soft);font-size:18px}
+h1,h2,h3,.lead,.sec-h p{text-wrap:balance}
 
+.lit{position:relative;border-radius:20px;background:linear-gradient(180deg,#111,#0b0b0b);border:1px solid var(--line)}
+.lit:before{content:"";position:absolute;left:12%;right:12%;top:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,138,61,.8),transparent)}
 .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
-.tile{position:relative;display:flex;flex-direction:column;gap:12px;min-height:220px;padding:26px;border-radius:20px;text-decoration:none;
-  background:var(--paper);border:1px solid var(--line);box-shadow:var(--sh);overflow:hidden;
-  transition:transform .35s cubic-bezier(.16,1,.3,1),box-shadow .3s,border-color .25s}
-.tile:before{content:"";position:absolute;inset:0;background:radial-gradient(360px 200px at var(--mx,50%) var(--my,0%),rgba(29,110,240,.07),transparent 60%);opacity:0;transition:opacity .3s}
-.tile:hover{border-color:var(--line2);box-shadow:var(--sh-lg)}
-.tile:hover:before{opacity:1}
-.tile .ic{display:grid;place-items:center;width:46px;height:46px;border-radius:13px;background:var(--chip);color:var(--blue);transition:background .25s,color .25s}
-.tile:hover .ic{background:var(--blue);color:#fff}
+.tile{display:flex;flex-direction:column;gap:12px;min-height:240px;padding:28px;text-decoration:none;color:var(--txt);
+  transition:transform .35s cubic-bezier(.16,1,.3,1),border-color .25s,box-shadow .3s}
+.tile:hover{transform:translateY(-5px);border-color:#3a2a20;box-shadow:0 20px 50px rgba(0,0,0,.6),0 0 40px rgba(255,90,31,.12)}
+.tile .ic{display:grid;place-items:center;width:46px;height:46px;border-radius:12px;background:rgba(255,90,31,.12);color:var(--sun2)}
 .tile .ic .ico{width:22px;height:22px}
-.tile h3{margin:6px 0 0;font-size:20px;font-weight:700;letter-spacing:-.01em}
-.tile p{margin:0;color:var(--soft);font-size:15px;line-height:1.5}
-.tile .go{display:inline-flex;align-items:center;gap:6px;margin-top:auto;color:var(--blue);font-size:14px;font-weight:650}
-.tile .go .ico{width:16px;height:16px;transition:transform .3s}
-.tile:hover .go .ico{transform:translateX(4px)}
+.tile h3{margin:6px 0 0;font-size:21px;font-weight:700;color:var(--ink)}
+.tile p{margin:0;color:var(--soft);font-size:16px;line-height:1.5}
+.tile .go{margin-top:auto;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border-radius:10px;
+  border:1px solid var(--line2);color:var(--ink);font-size:15px;font-weight:600;transition:background .2s,border-color .2s}
+.tile .go .ico{width:16px;height:16px}
+.tile:hover .go{border-color:var(--sun)}
+.tile.hot{border-color:rgba(255,90,31,.55);box-shadow:0 0 0 1px rgba(255,90,31,.25),0 0 60px rgba(255,90,31,.16)}
+.tile.hot .go{background:linear-gradient(180deg,var(--sun2),var(--sun));border-color:transparent;color:#fff}
+.tile.hot .tag{position:absolute;top:18px;right:18px;padding:4px 10px;border-radius:999px;background:rgba(255,90,31,.15);color:var(--sun2);font-size:12px;font-weight:700}
 
 .caps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-.cap{padding:28px 24px;border-radius:20px;background:linear-gradient(180deg,#f7faff,#fff);border:1px solid var(--line)}
-.cap .ic{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;color:#fff;background:linear-gradient(135deg,var(--sky),var(--blue));box-shadow:0 8px 18px rgba(29,110,240,.25)}
+.cap{padding:28px 24px}
+.cap .ic{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;color:#fff;background:linear-gradient(180deg,var(--sun2),var(--sun));box-shadow:0 0 24px rgba(255,90,31,.35)}
 .cap .ic .ico{width:22px;height:22px}
-.cap h3{margin:18px 0 8px;font-size:18px;font-weight:700}
-.cap p{margin:0;color:var(--soft);font-size:15px;line-height:1.5}
+.cap h3{margin:18px 0 8px;font-size:19px;color:var(--ink)}
+.cap p{margin:0;color:var(--soft);font-size:16px;line-height:1.5}
 
-.connect{display:grid;grid-template-columns:1.05fr .95fr;gap:20px}
-.panel{padding:32px;border-radius:22px;background:var(--paper);border:1px solid var(--line);box-shadow:var(--sh)}
-.panel h3{margin:0 0 6px;font-size:20px}
-.panel .muted{margin:0;color:var(--mute);line-height:1.5}
-.url{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 16px;padding:14px 14px 14px 18px;border-radius:14px;background:var(--tint);border:1px solid var(--line2)}
+.connect{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+.panel{padding:32px}
+.panel h3{margin:0 0 6px;font-size:21px;color:var(--ink)}
+.panel .muted{margin:0;color:var(--soft)}
+.url{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 16px;padding:12px 12px 12px 18px;border-radius:12px;background:#070707;border:1px solid var(--line2)}
 .url code{font-family:var(--mono);font-size:16px;white-space:nowrap;overflow-x:auto;max-width:100%;color:var(--ink)}
-.copy{display:inline-flex;align-items:center;gap:8px;border:0;background:var(--blue);color:#fff;padding:10px 16px;border-radius:10px;font:inherit;font-size:14px;font-weight:650;cursor:pointer}
-.copy:hover{background:var(--blue-d)}
+.copy{display:inline-flex;align-items:center;gap:8px;border:0;background:linear-gradient(180deg,var(--sun2),var(--sun));color:#fff;padding:10px 16px;border-radius:10px;font:inherit;font-size:14px;font-weight:650;cursor:pointer}
 .copy .ico{width:16px;height:16px}
 .steps{margin:0;padding:0;list-style:none;display:grid;gap:18px;counter-reset:s}
-.steps li{display:grid;grid-template-columns:36px 1fr;gap:14px;align-items:start;color:var(--soft);line-height:1.5}
-.steps li:before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--chip);color:var(--blue);font-weight:700;font-size:14px}
+.steps li{display:grid;grid-template-columns:38px 1fr;gap:14px;align-items:start;color:var(--txt)}
+.steps li:before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,138,61,.5);color:var(--sun2);font-weight:700;font-size:14px}
 .steps b{color:var(--ink);font-weight:650}
 
-.admin-box{padding:36px;border-radius:26px;background:linear-gradient(135deg,#0f2a5c,#1d4fa8);color:#fff;box-shadow:var(--sh-lg)}
-.admin-box .sec-h p{color:#c7d8f7}
-.admin-box .label{color:#8fd3ff}
+.admin-box{padding:36px;border-color:rgba(255,90,31,.35);box-shadow:0 0 70px rgba(255,90,31,.12)}
+.admin-box .sec-h{margin-bottom:28px}
 .admin-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.atile{display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:14px;text-decoration:none;color:#fff;
-  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);transition:background .2s,transform .25s}
-.atile:hover{background:rgba(255,255,255,.16);transform:translateY(-2px)}
-.atile .ico{width:20px;height:20px;color:#8fd3ff;flex:none}
+.atile{display:flex;align-items:center;gap:12px;padding:16px 18px;border-radius:12px;text-decoration:none;color:var(--ink);
+  background:rgba(255,255,255,.03);border:1px solid var(--line2);transition:border-color .2s,transform .25s,background .2s}
+.atile:hover{border-color:var(--sun);background:rgba(255,90,31,.08);transform:translateY(-2px)}
+.atile .ico{width:20px;height:20px;color:var(--sun2);flex:none}
 .atile span{font-size:15px;font-weight:600}
 
-.foot{padding:40px 0 56px;color:var(--mute);font-size:14px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.foot a{color:var(--soft);text-decoration:none}.foot a:hover{color:var(--blue)}
+.stats{display:flex;justify-content:center;flex-wrap:wrap;gap:12px 48px;margin-top:40px}
+.stat{text-align:center}
+.stat b{display:block;font-size:30px;font-weight:780;color:var(--ink)}
+.stat span{color:var(--mute);font-size:14px}
 
-.js .rv{opacity:0;transform:translateY(24px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
-.js .rv.in{opacity:1;transform:none}
+.foot{padding:40px 0 56px;border-top:1px solid var(--line);color:var(--mute);font-size:14px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.foot a{color:var(--soft);text-decoration:none}.foot a:hover{color:var(--sun2)}
 
-@media (max-width:1040px){
-  .hero .wrap{grid-template-columns:1fr;min-height:0}
-  .visual{height:480px;max-width:620px;margin:0 auto;width:100%}
+@media (max-width:980px){
+  .dbody{grid-template-columns:1fr}.dside{display:none}
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.caps{grid-template-columns:repeat(2,minmax(0,1fr))}
   .connect{grid-template-columns:1fr}.admin-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:640px){
-  .hero{padding:40px 0 56px}.sec{padding:64px 0}
+  .hero{padding:48px 0 24px}.sec{padding:72px 0}
   .tiles,.caps,.admin-tiles{grid-template-columns:1fr}
-  .sec-h{grid-template-columns:1fr}
+  .kpis{grid-template-columns:1fr 1fr}.dgrid{grid-template-columns:1fr}
   .who .name,.live span{display:none}.live{padding:8px}
-  .chipw.c2,.chipw.c3,.tok span:nth-child(n+3){display:none}.chipw.c1{left:auto;right:4%;top:44%;width:96px;height:96px;opacity:.6}
-  .visual{height:400px}.f3,.f4{display:none}.f1{left:0;top:2%}.f2{right:0;top:auto;bottom:4%}
-  .stats{display:grid;grid-template-columns:1fr 1fr;gap:18px}.stat,.stat:first-child{padding:0;border:0}.stat b{font-size:24px}
   .panel,.admin-box{padding:22px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 }
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.js .rv{opacity:1;transform:none}[data-depth]{transform:none!important}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.dash,.zoom{--p:1!important}}
 """
-
-
-def _net_svg() -> str:
-    """Нейросеть в карточке ядра: слои узлов, связи и бегущие по части связей импульсы."""
-    cols = [(40, [70, 160, 250, 340]), (160, [40, 125, 210, 295, 380]), (280, [70, 160, 250, 340]), (390, [150, 260])]
-    lines, pulses, nodes = [], [], []
-    for (x1, ys1), (x2, ys2) in zip(cols, cols[1:]):
-        for i, y1 in enumerate(ys1):
-            for j, y2 in enumerate(ys2):
-                lines.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}"/>')
-                if (i + 2 * j) % 5 == 0:
-                    kind = ("p2" if (i + j) % 2 else "") + (" p3" if j % 3 == 0 else "")
-                    color = "#14a7e6" if (i + j) % 2 else "#1d6ef0"
-                    pulses.append(
-                        f'<line class="pulse {kind}" stroke="{color}" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}"/>'
-                    )
-    for n, (x, ys) in enumerate(cols):
-        for k, y in enumerate(ys):
-            if (n + k) % 3 == 0:
-                nodes.append(f'<circle cx="{x}" cy="{y}" r="9" fill="#1d6ef0" stroke="#fff" stroke-width="3"/>')
-            else:
-                nodes.append(f'<circle cx="{x}" cy="{y}" r="7" fill="#fff" stroke="#8fb4ee" stroke-width="2"/>')
-    return (
-        '<svg viewBox="0 0 430 420" aria-hidden="true">'
-        f'<g stroke="rgba(29,110,240,.16)" stroke-width="1.2">{"".join(lines)}</g>'
-        f'<g fill="none" stroke-linecap="round">{"".join(pulses)}</g>'
-        f'<g>{"".join(nodes)}</g></svg>'
-    )
 
 
 def _plural(n: int, one: str, few: str, many: str) -> str:
@@ -322,105 +282,105 @@ def _plural(n: int, one: str, few: str, many: str) -> str:
     return many
 
 
-def _visual(*, skills: int, logged_in: bool) -> str:
-    if logged_in and skills:
-        first = f"<small>в каталоге ядра</small><strong>{skills} {_plural(skills, 'навык', 'навыка', 'навыков')}</strong>"
+def _net_svg() -> str:
+    """Граф-нейросеть ядра: узлы по слоям, связи и бегущие по части связей импульсы."""
+    cols = [(40, [60, 140, 220, 300]), (165, [30, 105, 180, 255, 330]), (290, [60, 140, 220, 300]), (400, [130, 230])]
+    lines, pulses, nodes = [], [], []
+    for (x1, ys1), (x2, ys2) in zip(cols, cols[1:]):
+        for i, y1 in enumerate(ys1):
+            for j, y2 in enumerate(ys2):
+                lines.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}"/>')
+                if (i + 2 * j) % 5 == 0:
+                    kind = ("p2" if (i + j) % 2 else "") + (" p3" if j % 3 == 0 else "")
+                    pulses.append(f'<line class="pulse {kind}" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}"/>')
+    for n, (x, ys) in enumerate(cols):
+        for k, y in enumerate(ys):
+            if (n + k) % 3 == 0:
+                nodes.append(f'<circle class="hot" cx="{x}" cy="{y}" r="8"/>')
+            else:
+                nodes.append(f'<circle cx="{x}" cy="{y}" r="6"/>')
+    return (
+        '<svg class="net" viewBox="0 0 440 360" aria-hidden="true">'
+        f'<g class="links">{"".join(lines)}</g>'
+        f'<g class="pulses">{"".join(pulses)}</g>'
+        f'<g class="nodes">{"".join(nodes)}</g></svg>'
+    )
+
+
+def _dashboard(*, actor, skills: int, skill_titles: tuple[str, ...]) -> str:
+    """Макет рабочего экрана ядра на первом экране — с настоящими данными, если человек вошёл."""
+    if actor is not None:
+        who = escape(actor.display)
+        kpi_first = f'<div class="kpi"><small>в каталоге</small><b>{skills}</b></div>'
+        titles = skill_titles[:4] or ("Навыки компании",)
+        rows = "".join(
+            f'<div class="srow"><span class="dot">{_icon("book")}</span><span>{escape(t)}</span><em>активен</em></div>'
+            for t in titles
+        )
     else:
-        first = "<small>для всех отделов</small><strong>Навыки компании</strong>"
+        who = "@sibsensor.com"
+        kpi_first = '<div class="kpi"><small>навыки</small><b>отделов</b></div>'
+        rows = "".join(
+            f'<div class="srow"><span class="dot">{_icon(icon)}</span><span>{text}</span></div>'
+            for icon, text in (
+                ("book", "Навыки компании"),
+                ("search", "Общие знания"),
+                ("bell", "Уведомления в Telegram"),
+                ("shield", "Журнал действий"),
+            )
+        )
+    side_items = []
+    for i, (icon, title, _desc, href) in enumerate(_USER_TILES):
+        cls = "si on" if i == 0 else "si"
+        label = f"{_icon(icon)}{escape(title)}"
+        # гостю — только картинка меню, без ссылок на личные разделы
+        side_items.append(f'<a class="{cls}" href="{href}">{label}</a>' if actor is not None else f'<span class="{cls}">{label}</span>')
+    side = "".join(side_items)
     return (
-        '<div class="visual rv" aria-hidden="true">'
-        '<div class="core" data-depth="0.25">'
-        '<div class="core-h"><div class="dots3"><span></span><span></span><span></span></div>'
-        '<span class="t"><i></i>Сибсенсор AI · ядро</span></div>'
-        f'<div class="net">{_net_svg()}</div>'
-        '<div class="core-f"><span>MCP</span><span>OAuth</span><span>audit log</span><span>skills</span></div>'
+        '<div class="stage rv"><div class="dash" data-scroll>'
+        '<div class="dbar"><span></span><span></span><span></span>'
+        f'<div class="t"><i></i>Сибсенсор AI · ядро · {who}</div></div>'
+        '<div class="dbody">'
+        f'<nav class="dside" aria-label="Разделы ядра">{side}</nav>'
+        '<div class="dmain"><h4>Обзор ядра</h4>'
+        '<div class="kpis">'
+        f"{kpi_first}"
+        '<div class="kpi"><small>вход</small><b>Яндекс ID</b></div>'
+        '<div class="kpi"><small>статус</small><b class="ok">онлайн</b></div>'
         "</div>"
-        f'<div class="fchip f1" data-depth="1.1"><div class="card"><span class="ic">{_icon("book")}</span><span>{first}</span></div></div>'
-        f'<div class="fchip f2" data-depth="0.8"><div class="card"><span class="ic">{_icon("key")}</span>'
-        "<span><small>вход</small><strong>@sibsensor.com</strong></span></div></div>"
-        f'<div class="fchip f3" data-depth="1.4"><div class="card"><span class="ic">{_icon("bell")}</span>'
-        "<span><small>уведомления</small><strong>Telegram</strong></span></div></div>"
-        '<div class="fchip f4" data-depth="0.6"><div class="card"><code>agent.run()</code><span class="okc">✓</span></div></div>'
-        "</div>"
-    )
-
-
-# Дорожки платы: начинаются от краёв экрана и уходят внутрь, на концах — переходные отверстия.
-_TRACES = (
-    ("M0 140H220L260 180H420", (420, 180)),
-    ("M0 230H160L200 270H330L360 300H520", (520, 300)),
-    ("M0 520H120L170 470H300", (300, 470)),
-    ("M0 610H240L280 650H360", (360, 650)),
-    ("M0 770H200L240 810H460L500 770H640", (640, 770)),
-    ("M0 890H340L380 930H560", (560, 930)),
-    ("M1600 120H1380L1340 160H1180", (1180, 160)),
-    ("M1600 300H1460L1420 260H1300L1260 300H1120", (1120, 300)),
-    ("M1600 470H1500L1460 510H1240", (1240, 510)),
-    ("M1600 700H1420L1380 740H1200L1160 700H1020", (1020, 700)),
-    ("M1600 870H1300L1260 830H1100", (1100, 830)),
-    ("M780 1000V880L820 840V760", (820, 760)),
-    ("M980 0V90L940 130V210", (940, 210)),
-    ("M1240 1000V940L1200 900V860", (1200, 860)),
-)
-
-_TOKENS = ("&lt;/&gt;", "MCP://core", "skills.list()", "POST /mcp", "01001011", "200 OK")
-
-
-def _circuit_svg() -> str:
-    traces = "".join(f'<path class="trace" d="{d}"/>' for d, _ in _TRACES)
-    signals = "".join(f'<path class="sig" d="{d}"/>' for d, _ in _TRACES)
-    vias = "".join(f'<circle class="via" cx="{x}" cy="{y}" r="6"/>' for _, (x, y) in _TRACES)
-    return (
-        '<svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
-        f"<g>{traces}</g><g>{signals}</g><g>{vias}</g></svg>"
-    )
-
-
-def _chip_svg(label: str) -> str:
-    pins = "".join(f'<path d="M{p} 8V26M{p} 124V142M8 {p}H26M124 {p}H142"/>' for p in (45, 65, 85, 105))
-    return (
-        '<svg viewBox="0 0 150 150" aria-hidden="true">'
-        f'<g stroke="#9dbbeb" stroke-width="2.4" stroke-linecap="round">{pins}</g>'
-        '<rect x="28" y="28" width="94" height="94" rx="16" fill="#fff" stroke="#1d6ef0" stroke-width="2.2"/>'
-        '<rect x="40" y="40" width="70" height="70" rx="10" fill="#eef4ff" stroke="#c9d9f1"/>'
-        '<text x="75" y="84" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif" font-size="22" '
-        f'font-weight="800" fill="#1d6ef0">{label}</text></svg>'
+        '<div class="dgrid">'
+        f'<div class="dpanel"><small>Навыки</small>{rows}</div>'
+        f'<div class="dpanel graph" aria-hidden="true"><small>Граф ядра · связи навыков и сервисов</small>{_net_svg()}</div>'
+        "</div></div></div></div></div>"
     )
 
 
 def _background() -> str:
-    chips = "".join(
-        f'<div class="chipw {cls}" data-depth="{depth}"><span class="halo"></span>{_chip_svg(label)}</div>'
-        for cls, label, depth in (("c1", "AI", "0.9"), ("c2", "MCP", "1.15"), ("c3", "API", "0.6"))
-    )
-    tokens = "".join(f"<span>{t}</span>" for t in _TOKENS)
     return (
         '<div class="bg" aria-hidden="true">'
-        '<div class="blob b1" data-depth="0.35"></div>'
-        '<div class="blob b2" data-depth="0.5"></div>'
-        '<div class="blob b3" data-depth="0.3"></div>'
-        '<div class="dots" data-depth="0.15"></div>'
-        f'<div class="circuit" data-depth="0.4">{_circuit_svg()}</div>'
-        f"{chips}"
-        f'<div class="tok" data-depth="1.3">{tokens}</div>'
+        '<div class="grid"></div><div class="sun" data-depth="0.4"></div><div class="horizon" data-depth="0.2"></div>'
         "</div>"
     )
 
 
 def _sec_head(label: str, title: str, text: str) -> str:
     return (
-        f'<div class="sec-h rv"><div><span class="label">{escape(label)}</span><h2>{escape(title)}</h2></div>'
+        f'<div class="sec-h"><span class="label">{escape(label)}</span><h2>{escape(title)}</h2>'
         f"<p>{escape(text)}</p></div>"
     )
 
 
 def _tiles(items) -> str:
-    return "".join(
-        f'<a class="tile rv" href="{href}"><span class="ic">{_icon(icon)}</span>'
-        f"<h3>{escape(title)}</h3><p>{escape(desc)}</p>"
-        f'<span class="go">Открыть {_icon("arrow")}</span></a>'
-        for icon, title, desc, href in items
-    )
+    out = []
+    for icon, title, desc, href in items:
+        hot = href == "/skills/new"
+        out.append(
+            f'<a class="tile lit{" hot" if hot else ""}" href="{href}">'
+            + ('<span class="tag">главное</span>' if hot else "")
+            + f'<span class="ic">{_icon(icon)}</span><h3>{escape(title)}</h3><p>{escape(desc)}</p>'
+            f'<span class="go">Открыть {_icon("arrow")}</span></a>'
+        )
+    return "".join(out)
 
 
 def _admin_block() -> str:
@@ -429,7 +389,7 @@ def _admin_block() -> str:
         for icon, title, href in _ADMIN_TILES
     )
     return (
-        '<section class="sec" id="admin"><div class="wrap"><div class="admin-box rv">'
+        '<section class="sec" id="admin"><div class="wrap zoom" data-scroll><div class="lit admin-box">'
         + _sec_head("Только для администраторов", "Управление ядром", "Доступы, заявки, журнал и состояние шлюза.")
         + f'<div class="admin-tiles">{tiles}</div></div></div></section>'
     )
@@ -437,15 +397,15 @@ def _admin_block() -> str:
 
 def _connect_block(mcp_url: str) -> str:
     return (
-        '<section class="sec" id="connect"><div class="wrap">'
+        '<section class="sec" id="connect"><div class="wrap zoom" data-scroll>'
         + _sec_head("За пять минут", "Подключить ассистента", "Ваш Claude начнёт работать с навыками и знаниями компании.")
         + '<div class="connect">'
-        '<div class="panel rv"><h3>Адрес ядра</h3>'
+        '<div class="lit panel"><h3>Адрес ядра</h3>'
         '<p class="muted">Вставьте его в приложении Claude: Настройки → Коннекторы → Добавить.</p>'
         f'<div class="url"><code id="mcp-url">{escape(mcp_url)}</code>'
         f'<button class="copy" type="button" data-copy="#mcp-url">{_icon("copy")}<span>Копировать</span></button></div>'
         '<p class="muted">Права администратора не нужны: доступ открывается сам для рабочей почты @sibsensor.com.</p></div>'
-        '<div class="panel rv"><ol class="steps">'
+        '<div class="lit panel"><ol class="steps">'
         "<li><span>Установите <b>приложение Claude</b> с claude.ai/download</span></li>"
         "<li><span><b>Настройки → Коннекторы → Добавить</b>, вставьте адрес ядра</span></li>"
         "<li><span>Нажмите <b>«Войти через Яндекс»</b> и войдите рабочей почтой</span></li>"
@@ -456,19 +416,19 @@ def _connect_block(mcp_url: str) -> str:
 
 def _caps_block() -> str:
     cells = "".join(
-        f'<div class="cap rv"><span class="ic">{_icon(icon)}</span><h3>{escape(t)}</h3><p>{escape(d)}</p></div>'
+        f'<div class="lit cap"><span class="ic">{_icon(icon)}</span><h3>{escape(t)}</h3><p>{escape(d)}</p></div>'
         for icon, t, d in _CAPS
     )
     return (
-        '<section class="sec alt" id="core"><div class="wrap">'
+        '<section class="sec" id="core"><div class="wrap zoom" data-scroll>'
         + _sec_head("Что внутри", "Что даёт ядро", "Один общий мозг компании на нашем сервере — для ассистента каждого сотрудника.")
         + f'<div class="caps">{cells}</div></div></section>'
     )
 
 
-def _page_html(*, actor, skills: int, agents: int, mcp_url: str) -> str:
+def _page_html(*, actor, skills: int, agents: int, mcp_url: str, skill_titles: tuple[str, ...] = ()) -> str:
     if actor is None:
-        who = '<a class="btn ghost" style="min-height:40px;padding:0 16px;font-size:14px" href="/auth/yandex/login?next=/">Войти</a>'
+        who = '<a class="btn ghost sm" href="/auth/yandex/login?next=/">Войти</a>'
         hero_lead = (
             "Корпоративное AI-ядро компании. Навыки, агенты и знания Сибсенсора — "
             "в одном месте, на нашем сервере. <strong>Вход — рабочей почтой.</strong>"
@@ -492,7 +452,7 @@ def _page_html(*, actor, skills: int, agents: int, mcp_url: str) -> str:
             '<a class="btn ghost" href="/skills/new">Добавить навык</a>'
         )
         work = (
-            '<section class="sec" id="work"><div class="wrap">'
+            '<section class="sec" id="work"><div class="wrap zoom" data-scroll>'
             + _sec_head("Рабочее место", "Всё, что можно сделать в ядре", "Каждая карточка — рабочая ссылка, в один клик.")
             + f'<div class="tiles">{_tiles(_USER_TILES)}</div></div></section>'
         )
@@ -508,7 +468,7 @@ def _page_html(*, actor, skills: int, agents: int, mcp_url: str) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="dark">
 <title>Сибсенсор AI · ядро</title>
 <style>{_CSS}</style>
 <script src="/static/hub.js" defer></script>
@@ -517,19 +477,19 @@ def _page_html(*, actor, skills: int, agents: int, mcp_url: str) -> str:
 {_background()}
 <div class="page">
 <header class="top">
-<a class="brand" href="/"><b>С</b><span>Сибсенсор AI<small>корпоративное ядро</small></span></a>
+<a class="brand" href="/"><b>С</b>Сибсенсор&nbsp;<em>AI</em></a>
 <div class="who"><span class="live" title="Ядро онлайн"><i></i><span>Ядро онлайн</span></span>{who}</div>
 </header>
 <main>
 <section class="hero"><div class="wrap">
-<div>
-<span class="pill rv"><i></i>Вы на ядре</span>
-<h1 class="rv">Сибсенсор<br><em>AI-ядро</em></h1>
-<p class="lead rv">{hero_lead}</p>
-<div class="cta rv">{cta}</div>
-<div class="stats rv">{stats}</div>
+<div class="hero-txt">
+<span class="pill"><i></i>Вы на ядре</span>
+<h1>Сибсенсор <em>AI-ядро</em></h1>
+<p class="lead">{hero_lead}</p>
+<div class="cta">{cta}</div>
+<div class="stats">{stats}</div>
 </div>
-{_visual(skills=skills, logged_in=actor is not None)}
+{_dashboard(actor=actor, skills=skills, skill_titles=skill_titles)}
 </div></section>
 {work}
 {_caps_block()}
@@ -545,21 +505,9 @@ def _page_html(*, actor, skills: int, agents: int, mcp_url: str) -> str:
 
 _JS = r"""
 (function(){
-  document.documentElement.classList.add('js');
   var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
   ready(function(){
-    // появление блоков при прокрутке
-    var items = document.querySelectorAll('.rv');
-    if('IntersectionObserver' in window && !reduce){
-      var io = new IntersectionObserver(function(es){
-        es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
-      }, {threshold: 0.12});
-      items.forEach(function(el, i){ el.style.transitionDelay = (i % 6) * 60 + 'ms'; io.observe(el); });
-      // страховка: текст не должен остаться невидимым, если анимация не сработала
-      setTimeout(function(){ items.forEach(function(el){ el.classList.add('in'); }); }, 3000);
-    } else { items.forEach(function(el){ el.classList.add('in'); }); }
-
     // копирование адреса ядра
     document.querySelectorAll('[data-copy]').forEach(function(b){
       b.addEventListener('click', function(){
@@ -571,37 +519,48 @@ _JS = r"""
         });
       });
     });
-
     if(reduce) return;
-    // параллакс: фон и плашки вокруг карточки ядра сдвигаются на разную глубину
-    var layers = Array.prototype.slice.call(document.querySelectorAll('[data-depth]'));
-    var mx = 0, my = 0, tx = 0, ty = 0, sy = window.scrollY;
+
+    // прокрутка: дашборд выпрямляется из наклона, секции «наезжают» (--p от 0 до 1)
+    var scrolled = Array.prototype.slice.call(document.querySelectorAll('[data-scroll]'));
+    var depth = Array.prototype.slice.call(document.querySelectorAll('[data-depth]'));
+    var mx = 0, my = 0, tx = 0, ty = 0;
     var fine = window.matchMedia && matchMedia('(pointer: fine)').matches;
     if(fine){
       window.addEventListener('pointermove', function(e){
         mx = (e.clientX / innerWidth - 0.5); my = (e.clientY / innerHeight - 0.5);
       }, {passive: true});
     }
-    window.addEventListener('scroll', function(){ sy = window.scrollY; }, {passive: true});
+    function clamp(v){ return v < 0 ? 0 : (v > 1 ? 1 : v); }
+    function update(){
+      var vh = innerHeight;
+      scrolled.forEach(function(el){
+        var r = el.getBoundingClientRect();
+        var start = el.classList.contains('dash') ? vh * 0.98 : vh;
+        var span = el.classList.contains('dash') ? vh * 0.55 : vh * 0.45;
+        el.style.setProperty('--p', clamp((start - r.top) / span).toFixed(3));
+      });
+    }
+    update();
+    window.addEventListener('scroll', update, {passive: true});
+    window.addEventListener('resize', update);
     (function loop(){
-      tx += (mx - tx) * 0.07; ty += (my - ty) * 0.07;
-      layers.forEach(function(l){
+      tx += (mx - tx) * 0.06; ty += (my - ty) * 0.06;
+      depth.forEach(function(l){
         var d = parseFloat(l.getAttribute('data-depth')) || 0;
-        l.style.transform = 'translate3d(' + (-tx * 36 * d) + 'px,' + (-ty * 36 * d - sy * 0.08 * d) + 'px,0)';
+        l.style.translate = (-tx * 40 * d) + 'px ' + (-ty * 30 * d - scrollY * 0.15 * d) + 'px';
       });
       requestAnimationFrame(loop);
     })();
 
-    // карточки: подсветка под курсором и лёгкий наклон
+    // карточки: свет следует за курсором
     if(fine){
-      document.querySelectorAll('.tile').forEach(function(t){
-        t.addEventListener('pointermove', function(e){
-          var r = t.getBoundingClientRect();
-          var x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-          t.style.setProperty('--mx', (x * 100) + '%'); t.style.setProperty('--my', (y * 100) + '%');
-          t.style.transform = 'perspective(900px) rotateX(' + ((0.5 - y) * 4) + 'deg) rotateY(' + ((x - 0.5) * 5) + 'deg) translateY(-4px)';
+      document.querySelectorAll('.lit').forEach(function(c){
+        c.addEventListener('pointermove', function(e){
+          var r = c.getBoundingClientRect();
+          c.style.backgroundImage = 'radial-gradient(420px 220px at ' + (e.clientX - r.left) + 'px ' + (e.clientY - r.top) + 'px, rgba(255,90,31,.10), transparent 60%), linear-gradient(180deg,#111,#0b0b0b)';
         });
-        t.addEventListener('pointerleave', function(){ t.style.transform = ''; });
+        c.addEventListener('pointerleave', function(){ c.style.backgroundImage = ''; });
       });
     }
   });
@@ -623,16 +582,21 @@ def register_hub_routes(mcp):
     async def hub_home(request):
         actor = web_actor(request)
         skills = agents = 0
+        titles: tuple[str, ...] = ()
         if actor is not None:
             try:
-                skills = len(await run_in_threadpool(skill_summaries))
+                catalog = await run_in_threadpool(skill_summaries)
+                skills = len(catalog)
+                titles = tuple(str(s.get("title") or s.get("name") or "") for s in catalog if s.get("title") or s.get("name"))
             except Exception:  # noqa: BLE001 - страница не должна падать из-за счётчика
                 skills = 0
             try:
                 agents = len(await run_in_threadpool(storage_skills.list_agents))
             except Exception:  # noqa: BLE001
                 agents = 0
-        html = _page_html(actor=actor, skills=skills, agents=agents, mcp_url=public_url() + "/mcp")
+        html = _page_html(
+            actor=actor, skills=skills, agents=agents, mcp_url=public_url() + "/mcp", skill_titles=titles
+        )
         return _secure(HTMLResponse(html), private=True)
 
     @mcp.custom_route("/static/hub.js", methods=["GET"], include_in_schema=False)
