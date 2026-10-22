@@ -44,7 +44,8 @@ class HubPageTests(unittest.TestCase):
     def test_page_has_no_inline_scripts(self):
         html = hub._page_html(actor=USER, skills=1, agents=0, mcp_url=URL)
         self.assertEqual(html.count("<script"), 1)
-        self.assertIn('<script src="/static/hub.js" defer></script>', html)
+        self.assertIn(f'<script src="/static/hub.js?v={hub._JS_VERSION}" defer></script>', html)
+        self.assertRegex(hub._JS_VERSION, r"^[0-9a-f]{10}$")
 
 
 if __name__ == "__main__":
