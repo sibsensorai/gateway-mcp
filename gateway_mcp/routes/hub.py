@@ -14,7 +14,7 @@ from html import escape
 from starlette.responses import HTMLResponse, Response
 
 from gateway_mcp.config import public_url
-from gateway_mcp.services import storage_skills
+from gateway_mcp.services import members, storage_skills
 from gateway_mcp.services.policy import has_scope
 from gateway_mcp.tools.skills import skill_summaries
 from gateway_mcp.web import web_actor
@@ -36,6 +36,7 @@ _USER_TILES = (
 )
 
 _ADMIN_TILES = (
+    ("people", "Новые участники", "/admin/members"),
     ("gauge", "Обзор ядра", "/admin"),
     ("inbox", "Заявки на навыки", "/admin/skill-requests"),
     ("key", "Заявки на доступ", "/admin/access-requests"),
@@ -297,6 +298,7 @@ h1,h2,h3,.lead,.sec-h p{text-wrap:balance}
 .atile:hover{border-color:var(--sun);background:rgba(255,90,31,.08);transform:translateY(-2px)}
 .atile .ico{width:20px;height:20px;color:var(--sun2);flex:none}
 .atile span{font-size:15px;font-weight:600}
+.atile .cnt{margin-left:auto;font-style:normal;min-width:24px;padding:2px 8px;border-radius:999px;background:var(--sun);color:#fff;font-size:13px;font-weight:700;text-align:center;box-shadow:0 0 14px rgba(255,90,31,.6)}
 
 .stats{display:flex;justify-content:center;flex-wrap:wrap;gap:12px 48px;margin-top:40px}
 .stat{text-align:center}
@@ -492,9 +494,14 @@ def _tiles(items) -> str:
     return "".join(out)
 
 
-def _admin_block() -> str:
+def _admin_block(member_pending: int = 0) -> str:
+    def badge(href: str) -> str:
+        if href == "/admin/members" and member_pending:
+            return f'<em class="cnt">{member_pending}</em>'
+        return ""
+
     tiles = "".join(
-        f'<a class="atile" href="{href}">{_icon(icon)}<span>{escape(title)}</span></a>'
+        f'<a class="atile" href="{href}">{_icon(icon)}<span>{escape(title)}</span>{badge(href)}</a>'
         for icon, title, href in _ADMIN_TILES
     )
     return (
@@ -535,7 +542,9 @@ def _caps_block() -> str:
     )
 
 
-def _page_html(*, actor, skills: int, agents: int, mcp_url: str, skill_titles: tuple[str, ...] = ()) -> str:
+def _page_html(
+    *, actor, skills: int, agents: int, mcp_url: str, skill_titles: tuple[str, ...] = (), member_pending: int = 0
+) -> str:
     if actor is None:
         who = '<a class="btn ghost sm" href="/auth/yandex/login?next=/">Войти</a>'
         hero_lead = (
@@ -565,7 +574,7 @@ def _page_html(*, actor, skills: int, agents: int, mcp_url: str, skill_titles: t
             + _sec_head("Рабочее место", "Всё, что можно сделать в ядре", "Каждая карточка — рабочая ссылка, в один клик.")
             + f'<div class="tiles">{_tiles(_USER_TILES)}</div></div></section>'
         )
-        admin = _admin_block() if is_admin else ""
+        admin = _admin_block(member_pending) if is_admin else ""
     stats = (
         (f'<div class="stat"><b>{skills}</b><span>навыков в ядре</span></div>' if skills else "")
         + (f'<div class="stat"><b>{agents}</b><span>агентов</span></div>' if agents else "")
@@ -766,8 +775,19 @@ def register_hub_routes(mcp):
                 agents = len(await run_in_threadpool(storage_skills.list_agents))
             except Exception:  # noqa: BLE001
                 agents = 0
+        member_pending = 0
+        if actor is not None and has_scope(actor, "access:admin"):
+            try:
+                member_pending = await run_in_threadpool(members.pending_count)
+            except Exception:  # noqa: BLE001
+                member_pending = 0
         html = _page_html(
-            actor=actor, skills=skills, agents=agents, mcp_url=public_url() + "/mcp", skill_titles=titles
+            actor=actor,
+            skills=skills,
+            agents=agents,
+            mcp_url=public_url() + "/mcp",
+            skill_titles=titles,
+            member_pending=member_pending,
         )
         return _secure(HTMLResponse(html), private=True)
 

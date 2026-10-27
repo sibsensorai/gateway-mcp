@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "allowed_email_domains": [],
+  "member_approval": true,
   "default_groups": [
     "employees"
   ],

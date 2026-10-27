@@ -22,6 +22,9 @@ DECISIONS = {"approved", "rejected", "need_info"}
 def _notify_telegram_new_request(approval: dict) -> None:
     """Best-effort Telegram ping to owners when a new skill/agent request is created."""
     atype = str((approval or {}).get("approval_type") or "")
+    if atype == "member_access":
+        _notify_telegram_new_member(approval)
+        return
     if atype not in ("skill_proposal", "skill_publish", "agent_proposal", "agent_publish"):
         return
     try:
@@ -40,7 +43,14 @@ def _notify_telegram_new_request(approval: dict) -> None:
             kind = "Навык"
             what = str(payload.get("summary") or "")
         link = public_url().rstrip("/") + "/admin/skill-requests"
-        text = f"🆕 Новая заявка на одобрение\n{kind}: {name}\n{what}\nОткрыть: {link}"
+        checks = payload.get("checks") if isinstance(payload.get("checks"), list) else []
+        verdict = ""
+        if checks:
+            from gateway_mcp.services.skill_pipeline import checks_summary
+
+            verdict = "\nАвтопроверка: " + checks_summary(checks)
+        update = "\n♻️ Обновление существующего навыка" if payload.get("is_update") else ""
+        text = f"🆕 Новая заявка на одобрение\n{kind}: {name}\n{what}{update}{verdict}\nОткрыть: {link}"
         _send_via_bot_api(chat_id, text)
     except Exception:
         return  # Telegram опционален — не ломаем создание заявки
@@ -67,6 +77,26 @@ def _notify_telegram_new_request(approval: dict) -> None:
             )
     except Exception:
         pass  # файл в чат — необязательное дополнение
+
+
+def _notify_telegram_new_member(approval: dict) -> None:
+    """Telegram администратору: новый человек просит доступ к ядру."""
+    try:
+        from gateway_mcp.backends.notifications import _configured_skill_update_chat_id, _send_via_bot_api
+        from gateway_mcp.config import public_url
+
+        payload = approval.get("payload") if isinstance(approval.get("payload"), dict) else {}
+        who = str(payload.get("email") or payload.get("login") or approval.get("subject") or "")
+        link = public_url().rstrip("/") + "/admin/members"
+        text = (
+            "👤 Новый участник просит доступ к ядру\n"
+            f"{who}\n"
+            "Одобрить может любой администратор ядра.\n"
+            f"Открыть: {link}"
+        )
+        _send_via_bot_api(_configured_skill_update_chat_id(), text)
+    except Exception:
+        return  # Telegram опционален
 
 
 def create_approval(
@@ -290,10 +320,24 @@ def decide_approval(
         _autopublish_on_approval(updated)
     except Exception:
         pass  # публикация не должна ломать само решение по заявке
+    for hook in _decision_hooks():
+        try:
+            hook(updated, str(comment or ""))
+        except Exception:
+            pass  # уведомления и учёт не должны ломать само решение
     return {
         "approval": updated,
         "events": list_approval_events(str(approval["approval_id"])),
     }
+
+
+def _decision_hooks():
+    from gateway_mcp.services import members, skill_pipeline
+
+    return (
+        lambda approval, _comment: members.on_approval_decided(approval),
+        skill_pipeline.on_approval_decided,
+    )
 
 
 def comment_approval(

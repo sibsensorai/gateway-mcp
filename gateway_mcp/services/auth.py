@@ -588,6 +588,9 @@ def exchange_mcp_refresh_token(
     if not is_user_allowed(user_info):
         raise PermissionError("Gateway user is no longer allowed")
     actor = actor_from_user_info(user_info)
+    from gateway_mcp.services.members import check_member_on_refresh
+
+    check_member_on_refresh(actor)
     return _issue_oauth_tokens(
         actor=actor,
         client_id=client_id,
@@ -970,6 +973,17 @@ async def login_with_yandex_code(code: str) -> tuple[GatewayActor, str]:
         raise PermissionError("Yandex user is not allowed by Gateway policy")
 
     actor = actor_from_user_info(user_info)
+    # Новый участник ждёт одобрения администратора: вход не сохраняем и токен не выдаём.
+    from gateway_mcp.services.members import MemberPendingError, check_member_on_login
+
+    try:
+        check_member_on_login(actor, user_info)
+    except MemberPendingError:
+        record_auth_failure("member_pending")
+        raise
+    except PermissionError:
+        record_auth_failure("member_rejected")
+        raise
     _save_yandex_actor_token(
         actor_subject=actor.subject,
         actor=actor,

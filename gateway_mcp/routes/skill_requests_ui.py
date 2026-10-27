@@ -17,20 +17,9 @@ from gateway_mcp.routes.admin_ui import fmt_time
 from gateway_mcp.services.admin_roles import require_current_admin
 from gateway_mcp.services import storage_skills
 from gateway_mcp.services.approvals import create_approval, decide_approval, list_visible_approvals
+from gateway_mcp.services.skill_pipeline import DEPTS, checks_summary, submit_skill
 from gateway_mcp.tools.skills import skill_summaries
 from gateway_mcp.web import login_redirect, web_actor
-
-DEPTS = ["IT", "Продажи", "Производство", "Руководство", "Другое"]
-_DEPT_PACK = {
-    "IT": "sibsensor-it",
-    "Продажи": "sibsensor-sales",
-    "Производство": "sibsensor-prod",
-    "Руководство": "sibsensor-mgmt",
-}
-
-
-def _dept_pack(dept: str) -> str:
-    return _DEPT_PACK.get(dept, "sibsensor-misc")
 
 
 def _dept_options() -> str:
@@ -112,17 +101,20 @@ def _new_landing() -> str:
     )
 
 
-def _skill_form_html() -> str:
+def _skill_form_html(name: str = "", summary: str = "", content: str = "", dept: str = "") -> str:
+    options = "".join(
+        f"<option{' selected' if d == dept else ''}>{escape(d)}</option>" for d in DEPTS
+    )
     return (
         '<form method="post" action="/skills/submit" enctype="multipart/form-data" class="sr-form">'
-        "<label>Название навыка (напр. it-проверка-vpn)"
-        '<input name="name" required maxlength="80"></label>'
-        f"<label>Отдел<select name=\"department\">{_dept_options()}</select></label>"
-        '<label>Что делает (кратко)<input name="summary" maxlength="200"></label>'
+        "<label>Название навыка (как угодно, например «Проверка VPN»)"
+        f'<input name="name" required maxlength="80" value="{escape(name)}"></label>'
+        f"<label>Отдел<select name=\"department\">{options}</select></label>"
+        f'<label>Когда его применять (кратко)<input name="summary" maxlength="200" value="{escape(summary)}"></label>'
         "<label>Файл навыка или материалы (можно приложить .md, .docx, .zip — до 5 МБ)"
         '<input type="file" name="attachment"></label>'
-        "<label>Либо вставь текст навыка (SKILL.md) сюда"
-        '<textarea name="content" rows="14" placeholder="---&#10;name: it-...&#10;description: ...&#10;---&#10;# ..."></textarea></label>'
+        "<label>Либо вставь текст навыка сюда — шапку SKILL.md ядро добавит само"
+        f'<textarea name="content" rows="14" placeholder="# Как ...&#10;1. ...">{escape(content)}</textarea></label>'
         "<button type=\"submit\">Отправить заявку</button>"
         '<a class="back" href="/skills/new">← назад</a>'
         "</form>"
@@ -163,7 +155,12 @@ _CSS = """
 .sr-card summary{cursor:pointer;color:#2b6cff;font-size:13px}
 .sr-card pre{background:#f5f7fb;border:1px solid #e3e6ef;border-radius:8px;padding:12px;overflow:auto;font-size:12.5px;max-height:360px;white-space:pre-wrap}
 .sr-meta{font-size:12.5px;color:#8a93a6;margin:8px 0 12px}
-.sr-actions{display:flex;gap:10px}
+.sr-actions{display:flex;gap:10px;flex-wrap:wrap}
+.sr-actions .reason{flex:1 1 100%;font:inherit;padding:9px 12px;border:1px solid #d9dfea;border-radius:9px}
+.sr-checks{list-style:none;margin:6px 0 12px;padding:0;display:grid;gap:4px;font-size:14px}
+.sr-checks li{padding:6px 10px;border-radius:8px;background:#f5f7fb}
+.sr-checks li.warn{background:#fff5e0;color:#8a5a00}.sr-checks li.fail{background:#fdeaea;color:#b11c1c}
+.sr-err{background:#fdeaea;border:1px solid #f3c0c0;color:#b11c1c;border-radius:12px;padding:12px 16px;margin-bottom:14px;font-weight:600}
 .sr-actions button{border:none;border-radius:9px;padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer}
 .sr-actions .approve{background:#1f9d6b;color:#fff}
 .sr-actions .reject{background:#fff;color:#d64545;border:1px solid #f0c9c9}
@@ -179,6 +176,27 @@ def _skill_block(skill: dict) -> str:
     content = escape(str(skill.get("skill_md") or files.get("SKILL.md") or ""))
     details = f"<details><summary>открыть файл</summary><pre>{content}</pre></details>" if content else ""
     return f"<li><b>{name}</b> — {desc}{details}</li>"
+
+
+_LEVEL_ICON = {"ok": "✅", "fixed": "🛠", "warn": "⚠️", "fail": "❌"}
+
+
+def _checks_list(checks: list) -> str:
+    items = "".join(
+        f'<li class="{escape(str(c.get("level") or ""))}">{_LEVEL_ICON.get(str(c.get("level")), "•")} {escape(str(c.get("text") or ""))}</li>'
+        for c in checks
+        if isinstance(c, dict)
+    )
+    return f'<p class="sr-what"><b>Автопроверка</b></p><ul class="sr-checks">{items}</ul>'
+
+
+def _checks_banner(checks: list, *, blocked: bool) -> str:
+    head = (
+        "Заявка не отправлена: исправьте отмеченное ❌ и отправьте снова."
+        if blocked
+        else "Автопроверка:"
+    )
+    return f'<div class="sr-err">{head}</div>' + _checks_list(checks)
 
 
 def _card(appr: dict) -> str:
@@ -204,6 +222,11 @@ def _card(appr: dict) -> str:
         files = payload.get("files") if isinstance(payload.get("files"), dict) else {}
         content = escape(str(payload.get("skill_md") or files.get("SKILL.md") or ""))
         extra = f"<details><summary>открыть полный файл</summary><pre>{content}</pre></details>" if content else ""
+        checks = payload.get("checks") if isinstance(payload.get("checks"), list) else []
+        if checks:
+            extra = _checks_list(checks) + extra
+        if payload.get("is_update"):
+            kind = "Навык · обновление"
 
     att = payload.get("attachment") if isinstance(payload.get("attachment"), dict) else None
     att_html = ""
@@ -219,6 +242,7 @@ def _card(appr: dict) -> str:
     form = (
         '<form method="post" action="/admin/skill-requests/decide" class="sr-actions">'
         f'<input type="hidden" name="approval_id" value="{aid}">'
+        '<input class="reason" name="comment" maxlength="500" placeholder="Причина отказа или комментарий автору">'
         '<button class="approve" name="decision" value="approved">✓ Одобрить</button>'
         '<button class="reject" name="decision" value="rejected">✕ Отклонить</button>'
         "</form>"
@@ -399,8 +423,11 @@ def register_skill_requests_routes(mcp):
             )
         )
         rows = [a for a in res.get("approvals", []) if str(a.get("approval_type") or "") in SKILL_TYPES]
+        err = ""
+        if request.query_params.get("err") == "reason":
+            err = '<div class="sr-err">Чтобы отклонить заявку, напишите причину — она уйдёт автору.</div>'
         if rows:
-            body = _CSS + '<div class="sr-wrap">' + "".join(_card(a) for a in rows) + "</div>"
+            body = _CSS + err + '<div class="sr-wrap">' + "".join(_card(a) for a in rows) + "</div>"
         else:
             body = _CSS + '<div class="sr-empty">Заявок на навыки сейчас нет.</div>'
         return _page(actor, "Заявки на навыки", "skill-requests", body)
@@ -412,13 +439,16 @@ def register_skill_requests_routes(mcp):
         form = await request.form()
         approval_id = str(form.get("approval_id", "")).strip()
         decision = str(form.get("decision", "")).strip()
+        comment = str(form.get("comment", "")).strip()
+        if decision == "rejected" and not comment:
+            return RedirectResponse("/admin/skill-requests?err=reason", status_code=303)
         if approval_id and decision in ("approved", "rejected"):
             await run_in_threadpool(
                 lambda: decide_approval(
                     actor=actor,
                     approval_id=approval_id,
                     decision=decision,
-                    comment="",
+                    comment=comment,
                     decision_payload_json="{}",
                 )
             )
@@ -485,6 +515,9 @@ def register_skill_requests_routes(mcp):
         ok = request.query_params.get("ok")
         banner = '<div class="sr-ok">✅ Заявка отправлена — владельцы её рассмотрят.</div>' if ok else ""
         banner += _att_banner(request.query_params.get("att", "")) if ok else ""
+        chk = request.query_params.get("chk", "")
+        if ok and chk:
+            banner += f'<div class="sr-ok" style="background:#eef3ff;border-color:#cfdcff;color:#1d3f8f">🔎 Автопроверка: {escape(chk)}</div>'
         return _page(actor, "Добавить навык или агента", "skills-new", _FORM_CSS + banner + _new_landing())
 
     @mcp.custom_route("/skills/submit", methods=["GET"], include_in_schema=False)
@@ -512,32 +545,31 @@ def register_skill_requests_routes(mcp):
         if not content and att_text:
             content = att_text
         if name and content:
-            payload = {
-                "skill_name": name,
-                "department": dept,
-                "summary": summary,
-                "skill_pack": _dept_pack(dept),
-                "skill_md": content,
-            }
-            if attachment:
-                payload["attachment"] = attachment
-            await run_in_threadpool(
-                lambda: create_approval(
+            result = await run_in_threadpool(
+                lambda: submit_skill(
                     actor=actor,
-                    approval_type="skill_publish",
-                    subject=name,
-                    required_role="admin",
-                    required_scope="",
-                    artifact_hash="",
-                    artifact_version="",
-                    payload_json=json.dumps(payload, ensure_ascii=False),
-                    source_refs_json="{}",
-                    metadata_json=json.dumps({"via": "web"}, ensure_ascii=False),
-                    four_eyes=False,
-                    expires_in_days=14,
+                    name="",
+                    title=name,
+                    department=dept,
+                    summary=summary,
+                    content=content,
+                    attachment=attachment,
+                    via="web",
                 )
             )
-            return RedirectResponse("/skills/new?ok=1&att=" + quote(att_note), status_code=303)
+            if result.get("blocked"):
+                return _page(
+                    actor,
+                    "Новый навык",
+                    "skills-new",
+                    _FORM_CSS + _CSS + _checks_banner(result.get("checks") or [], blocked=True)
+                    + _skill_form_html(name, summary, content, dept),
+                    422,
+                )
+            return RedirectResponse(
+                "/skills/new?ok=1&att=" + quote(att_note) + "&chk=" + quote(checks_summary(result.get("checks") or [])),
+                status_code=303,
+            )
         return RedirectResponse("/skills/submit?err=1&att=" + quote(att_note), status_code=303)
 
     @mcp.custom_route("/skills/submit-agent", methods=["GET"], include_in_schema=False)
@@ -569,7 +601,7 @@ def register_skill_requests_routes(mcp):
                     approval_type="agent_publish",
                     subject=title or slug,
                     required_role="admin",
-                    required_scope="",
+                    required_scope="access:admin",
                     artifact_hash="",
                     artifact_version="",
                     payload_json=json.dumps(payload, ensure_ascii=False),

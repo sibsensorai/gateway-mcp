@@ -277,6 +277,8 @@ def _navigation(*, active: str, is_admin: bool) -> str:
             (
                 "Управление",
                 (
+                    ("members", "Новые участники", "/admin/members"),
+                    ("skill-requests", "Заявки на навыки", "/admin/skill-requests"),
                     ("access-requests", "Заявки на доступ", "/admin/access-requests"),
                     ("users", "Доступ пользователей", "/admin/users"),
                     ("metrics", "Состояние шлюза", "/admin/metrics"),

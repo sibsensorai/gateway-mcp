@@ -34,6 +34,7 @@ from gateway_mcp.services.auth import (
     token_ttl_seconds,
 )
 from gateway_mcp.services.observability import audit_event
+from gateway_mcp.services.members import MemberPendingError, MemberRejectedError
 from gateway_mcp.services.policy import has_scope
 from gateway_mcp.web import (
     clear_gateway_cookie,
@@ -440,6 +441,12 @@ def register_auth_routes(mcp):
                 )
 
             actor, token = await login_with_yandex_code(code)
+        except MemberPendingError as exc:
+            audit_event(event="login", actor=current_actor(), decision="deny", status="pending", error=str(exc))
+            return _access_page("pending", 202)
+        except MemberRejectedError as exc:
+            audit_event(event="login", actor=current_actor(), decision="deny", status="denied", error=str(exc))
+            return _access_page("rejected", 403)
         except PermissionError as exc:
             audit_event(
                 event="login",
@@ -448,7 +455,9 @@ def register_auth_routes(mcp):
                 status="denied",
                 error=str(exc),
             )
-            return JSONResponse({"ok": False, "error": str(exc)}, status_code=403)
+            if request.query_params.get("format") == "json":
+                return JSONResponse({"ok": False, "error": str(exc)}, status_code=403)
+            return _access_page("not_allowed", 403)
         except Exception as exc:
             audit_event(
                 event="login",
@@ -493,3 +502,37 @@ def register_auth_routes(mcp):
         if not auth_enabled():
             return JSONResponse({"ok": True, "auth_enabled": False, "actor": actor_payload(current_actor())})
         return PlainTextResponse("Use the MCP endpoint with Authorization: Bearer <gateway-token>.", status_code=200)
+
+
+_ACCESS_TEXT = {
+    "pending": (
+        "Заявка на доступ отправлена",
+        "Вы впервые входите в ядро «Сибсенсор AI». Администратор получил заявку и скоро её рассмотрит. "
+        "Как только доступ одобрят, просто войдите снова тем же способом.",
+    ),
+    "rejected": (
+        "Доступ не одобрен",
+        "Администратор ядра не одобрил доступ для этой учётной записи. "
+        "Если это ошибка, напишите IT-администратору компании.",
+    ),
+    "not_allowed": (
+        "Эта почта не подходит",
+        "В ядро входят только рабочей почтой компании @sibsensor.com. "
+        "Выйдите из личного аккаунта Яндекса (или откройте окно инкогнито) и войдите рабочей почтой.",
+    ),
+}
+
+
+def _access_page(kind: str, status_code: int) -> HTMLResponse:
+    title, text = _ACCESS_TEXT[kind]
+    icon = {"pending": "⏳", "rejected": "⛔", "not_allowed": "✉️"}[kind]
+    html = f"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>{title} · Сибсенсор AI</title>
+<style>body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#050505;color:#d6d6d6;
+font-family:"Segoe UI",system-ui,sans-serif;padding:24px}}.card{{max-width:520px;padding:36px;border-radius:20px;
+background:#0e0e0e;border:1px solid #2c2c2c;box-shadow:0 0 70px rgba(255,90,31,.15);text-align:center}}
+.i{{font-size:44px}}h1{{color:#fff;font-size:26px;margin:14px 0 10px}}p{{line-height:1.6;font-size:17px}}
+a{{display:inline-block;margin-top:18px;padding:12px 22px;border-radius:12px;background:#ff5a1f;color:#fff;
+text-decoration:none;font-weight:600}}</style></head><body><div class="card"><div class="i">{icon}</div>
+<h1>{title}</h1><p>{text}</p><a href="/">На главную ядра</a></div></body></html>"""
+    return HTMLResponse(html, status_code=status_code)

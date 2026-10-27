@@ -338,7 +338,7 @@ def register_skill_tools(mcp):
 
     @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Skill Add Link", readOnlyHint=True))
     async def gateway_company_skill_add_link() -> str:
-        """ОБЯЗАТЕЛЬНО вызови это, когда пользователь спрашивает, КАК ДОБАВИТЬ / создать / предложить / отправить НАВЫК ИЛИ АГЕНТА компании, или просит «ссылку на добавление навыка». Верни ему ссылку (submit_url) и шаги из ответа. НЕ объясняй, как добавлять навыки в сам Claude или в ~/.claude/skills — у компании «Сибсенсор» своя форма подачи в ядре, и добавление идёт только через неё."""
+        """ОБЯЗАТЕЛЬНО вызови это, когда пользователь спрашивает, КАК ДОБАВИТЬ / создать / предложить навык или агента компании, или просит «ссылку на добавление навыка». Верни ему ссылку (submit_url) и шаги из ответа. Если пользователь уже готов отправить конкретный навык прямо сейчас — используй gateway_company_skill_submit. НЕ объясняй, как добавлять навыки в сам Claude или в ~/.claude/skills — у компании «Сибсенсор» своя подача в ядре."""
         tool = "gateway_company_skill_add_link"
         scope = "skills:read"
         run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={})
@@ -356,13 +356,73 @@ def register_skill_tools(mcp):
                         f"Открой ссылку: {url} (вход по рабочей почте @sibsensor.com через Яндекс).",
                         "Выбери «Добавить навык» или «Добавить агента».",
                         "Заполни форму (название, что делает, файл) и отправь.",
-                        "Руководство (Лукин / Шелемба) рассмотрит заявку и одобрит — после этого навык станет доступен всем.",
+                        "Ядро само проверит навык (формат, пароли, подозрительные команды) и отправит администраторам.",
+                        "Администратор (Лукин или Шелемба) одобрит — навык станет доступен всем, а вам придёт уведомление.",
+                        "Можно и без формы: скажите ассистенту «отправь этот навык в ядро».",
                     ],
                     "note": "Это форма подачи в ядре компании «Сибсенсор», а не настройки самого Claude.",
                 },
                 ensure_ascii=False,
                 indent=2,
             )
+        except PermissionError as exc:
+            run.denied(exc)
+            raise
+        except Exception as exc:
+            run.error(exc)
+            raise
+
+
+    @mcp.tool(annotations=ToolAnnotations(title="Gateway Company Skill Submit", readOnlyHint=False))
+    async def gateway_company_skill_submit(
+        title: str,
+        content: str,
+        department: str = "",
+        summary: str = "",
+    ) -> str:
+        """Отправить навык сотрудника в ядро «Сибсенсор» на одобрение — БЕЗ веб-формы. Вызывай, когда пользователь просит «отправь / добавь / предложи этот навык в ядро» и навык (инструкция) уже собран в разговоре.
+        Перед вызовом: собери полный текст навыка в `content` (пошаговая инструкция в Markdown: когда применять, шаги, чего нельзя, результат); шапку SKILL.md ядро добавит само. `title` — понятное название, `summary` — когда применять навык (1 фраза), `department` — один из: IT, Продажи, Производство, Руководство, Другое.
+        Ядро автоматически проверит навык (имя, шапка, описание, объём, обновление существующего, пароли и ключи, подозрительные команды, персональные данные) и отправит администраторам. Если `blocked: true` — НЕ отправлено: перескажи пользователю пункты с уровнем fail, помоги исправить и отправь снова. Не вставляй в навык пароли, токены и персональные данные."""
+        tool = "gateway_company_skill_submit"
+        scope = "approvals:write"
+        run = ToolRun.start(tool=tool, system="gateway", scope=scope, arguments={"title": title, "department": department})
+        try:
+            actor = run.require_scope()
+            if not storage_skills.postgres_enabled():
+                run.finish()
+                return json.dumps({"ok": False, "error": "database not available"}, ensure_ascii=False, indent=2)
+            if not (title or "").strip() or not (content or "").strip():
+                run.finish()
+                return json.dumps({"ok": False, "error": "title and content are required"}, ensure_ascii=False, indent=2)
+            from gateway_mcp.config import public_url
+            from gateway_mcp.services.skill_pipeline import DEPTS, submit_skill
+
+            dept = department if department in DEPTS else "Другое"
+            result = submit_skill(
+                actor=actor,
+                name="",
+                title=title,
+                department=dept,
+                summary=summary,
+                content=content,
+                via="chat",
+            )
+            run.finish()
+            answer = {
+                "ok": result.get("ok", False),
+                "blocked": result.get("blocked", False),
+                "approval_id": result.get("approval_id", ""),
+                "skill_name": result.get("name", ""),
+                "is_update": result.get("is_update", False),
+                "checks": result.get("checks", []),
+                "status_url": public_url().rstrip("/") + "/me",
+                "next": (
+                    "Заявка отправлена администраторам. Когда её одобрят, придёт уведомление, а навык станет доступен всем."
+                    if result.get("ok")
+                    else "Не отправлено: исправьте пункты с уровнем fail и отправьте снова."
+                ),
+            }
+            return json.dumps(answer, ensure_ascii=False, indent=2)
         except PermissionError as exc:
             run.denied(exc)
             raise

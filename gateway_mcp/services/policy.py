@@ -10,6 +10,7 @@ from gateway_mcp.services.storage import list_active_scope_grants
 DEFAULT_POLICY: dict[str, Any] = {
     "schema": 1,
     "allowed_email_domains": [],
+    "member_approval": False,
     "default_groups": ["employees"],
     "groups": {
         "employees": {
@@ -197,6 +198,17 @@ def is_user_allowed(user_info: dict[str, Any]) -> bool:
         return True
 
     return _matches_allowed_domain(email, allowed_domains)
+
+
+def member_approval_enabled() -> bool:
+    """Новый участник с почтой компании попадает в ядро только после одобрения администратора."""
+    return bool(_read_policy().get("member_approval", False))
+
+
+def is_listed_user(user_info: dict[str, Any]) -> bool:
+    """Пользователь явно перечислен в файле политики (такие не ждут одобрения)."""
+    users = _read_policy().get("users", {})
+    return any(key in users for key in _user_keys(user_info))
 
 
 def actor_from_user_info(
