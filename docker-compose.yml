@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: gateway_mcp
       POSTGRES_USER: gateway_mcp
@@ -16,6 +17,7 @@ services:
   gateway:
     build:
       context: .
+    restart: unless-stopped
     command: ["sh", "-c", "gateway-mcp migrate up && gateway-mcp --transport streamable-http"]
     depends_on:
       postgres:
@@ -152,6 +154,7 @@ services:
   notification-worker:
     build:
       context: .
+    restart: unless-stopped
     command: ["gateway-mcp", "notifications-worker"]
     depends_on:
       gateway:
