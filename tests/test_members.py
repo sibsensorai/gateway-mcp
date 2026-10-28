@@ -28,7 +28,7 @@ class MemberApprovalTests(unittest.TestCase):
             with self.assertRaises(members.MemberPendingError):
                 members.check_member_on_login(NEW, {})
         ins.assert_called_once()
-        req.assert_called_once_with(NEW, "new.person@sibsensor.com")
+        req.assert_called_once_with(NEW, "new.person@sibsensor.com", "")
 
     def test_person_who_logged_in_before_is_let_in(self):
         with patch.object(members, "get_member", return_value=None), patch.object(

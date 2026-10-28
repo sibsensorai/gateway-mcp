@@ -50,7 +50,14 @@ def _notify_telegram_new_request(approval: dict) -> None:
 
             verdict = "\nАвтопроверка: " + checks_summary(checks)
         update = "\n♻️ Обновление существующего навыка" if payload.get("is_update") else ""
-        text = f"🆕 Новая заявка на одобрение\n{kind}: {name}\n{what}{update}{verdict}\nОткрыть: {link}"
+        author = str(payload.get("author") or "")
+        if not author:
+            from gateway_mcp.services.people import person
+
+            author = person(str(approval.get("created_by") or ""))["label"]
+        text = (
+            f"🆕 Новая заявка на одобрение\n{kind}: {name}\nПредлагает: {author}\n{what}{update}{verdict}\nОткрыть: {link}"
+        )
         _send_via_bot_api(chat_id, text)
     except Exception:
         return  # Telegram опционален — не ломаем создание заявки
@@ -86,7 +93,8 @@ def _notify_telegram_new_member(approval: dict) -> None:
         from gateway_mcp.config import public_url
 
         payload = approval.get("payload") if isinstance(approval.get("payload"), dict) else {}
-        who = str(payload.get("email") or payload.get("login") or approval.get("subject") or "")
+        email = str(payload.get("email") or payload.get("login") or approval.get("subject") or "")
+        who = f"{payload.get('name')} ({email})" if payload.get("name") else email
         link = public_url().rstrip("/") + "/admin/members"
         text = (
             "👤 Новый участник просит доступ к ядру\n"

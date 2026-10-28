@@ -975,6 +975,7 @@ async def login_with_yandex_code(code: str) -> tuple[GatewayActor, str]:
     actor = actor_from_user_info(user_info)
     # Новый участник ждёт одобрения администратора: вход не сохраняем и токен не выдаём.
     from gateway_mcp.services.members import MemberPendingError, check_member_on_login
+    from gateway_mcp.services.people import name_from_yandex_info
 
     try:
         check_member_on_login(actor, user_info)
@@ -989,7 +990,7 @@ async def login_with_yandex_code(code: str) -> tuple[GatewayActor, str]:
         actor=actor,
         yandex_token=yandex_token,
         token_payload=token_payload,
-        metadata={"source": "yandex_oauth_login"},
+        metadata={"source": "yandex_oauth_login", "real_name": name_from_yandex_info(user_info)},
     )
     return actor, mint_gateway_token(actor)
 

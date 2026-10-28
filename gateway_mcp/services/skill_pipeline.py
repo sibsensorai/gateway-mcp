@@ -232,6 +232,12 @@ def submit_skill(
     }
     if attachment:
         payload["attachment"] = attachment
+    try:
+        from gateway_mcp.services.people import person
+
+        payload["author"] = person(actor.subject)["label"]
+    except Exception:  # noqa: BLE001
+        payload["author"] = actor.email or actor.subject
     result = create_approval(
         actor=actor,
         approval_type="skill_publish",

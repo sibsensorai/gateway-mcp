@@ -15,6 +15,7 @@ from gateway_mcp.routes.admin_ui import fmt_time
 from gateway_mcp.services import members
 from gateway_mcp.services.approvals import decide_approval, get_approval_request
 from gateway_mcp.services.observability import audit_event
+from gateway_mcp.services.people import person
 
 _CSS = """
 <style>
@@ -38,8 +39,14 @@ def _hidden(name: str, value: str) -> str:
     return f'<input type="hidden" name="{name}" value="{escape(value)}">'
 
 
+def _who(row: dict) -> str:
+    email = str(row.get("email") or row.get("login") or row.get("subject") or "")
+    name = str(row.get("name") or "").strip()
+    return escape(f"{name} ({email})" if name else email)
+
+
 def _pending_card(row: dict, csrf: str) -> str:
-    who = escape(str(row.get("email") or row.get("login") or row.get("subject") or ""))
+    who = _who(row)
     return (
         '<div class="mb-card"><div class="mb-who">'
         f"<b>{who}</b><span>просит доступ · {escape(fmt_time(row.get('requested_at')))}</span></div>"
@@ -54,14 +61,14 @@ def _pending_card(row: dict, csrf: str) -> str:
 
 
 def _decided_card(row: dict, csrf: str) -> str:
-    who = escape(str(row.get("email") or row.get("login") or row.get("subject") or ""))
+    who = _who(row)
     status = str(row.get("status") or "")
     label = "допущен" if status == "approved" else "отклонён"
     flip = "rejected" if status == "approved" else "approved"
     flip_label = "Закрыть доступ" if status == "approved" else "Пустить"
     return (
         '<div class="mb-card"><div class="mb-who">'
-        f"<b>{who}</b><span>{escape(fmt_time(row.get('decided_at')))} · {escape(str(row.get('decided_by') or ''))}</span></div>"
+        f"<b>{who}</b><span>{escape(fmt_time(row.get('decided_at')))} · решил: {escape(person(str(row.get('decided_by') or ''))['label'])}</span></div>"
         f'<div class="mb-act"><span class="mb-badge {status}">{label}</span>'
         '<form method="post" action="/admin/members/decide">'
         + _hidden("csrf", csrf)

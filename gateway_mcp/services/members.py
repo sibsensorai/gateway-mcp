@@ -46,18 +46,20 @@ def get_member(key: str) -> dict[str, Any] | None:
         return dict(row) if row else None
 
 
-def _insert_member(actor: GatewayActor, *, status: str, note: str = "", decided_by: str = "") -> dict[str, Any] | None:
+def _insert_member(
+    actor: GatewayActor, *, status: str, note: str = "", decided_by: str = "", name: str = ""
+) -> dict[str, Any] | None:
     """Вставляет запись, если её ещё нет. Возвращает запись или None при гонке."""
     ensure_schema()
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """
-            insert into member_access (member_key, subject, email, login, status, note, decided_by, decided_at)
-            values (%s, %s, %s, %s, %s, %s, %s, case when %s = 'pending' then null else now() end)
+            insert into member_access (member_key, subject, email, login, name, status, note, decided_by, decided_at)
+            values (%s, %s, %s, %s, %s, %s, %s, %s, case when %s = 'pending' then null else now() end)
             on conflict (member_key) do nothing
             returning *
             """,
-            (member_key(actor), actor.subject, actor.email, actor.login, status, note, decided_by, status),
+            (member_key(actor), actor.subject, actor.email, actor.login, name, status, note, decided_by, status),
         )
         row = cur.fetchone()
         conn.commit()
@@ -148,9 +150,12 @@ def check_member_on_login(actor: GatewayActor, user_info: dict[str, Any] | None 
         if _known_yandex_user(actor.subject):
             _insert_member(actor, status="approved", note="входил до включения одобрения", decided_by="system")
             return "approved"
-        row = _insert_member(actor, status="pending")
+        from gateway_mcp.services.people import name_from_yandex_info
+
+        name = name_from_yandex_info(user_info or {})
+        row = _insert_member(actor, status="pending", name=name)
         if row is not None:
-            _open_request(actor, key)
+            _open_request(actor, key, name)
         else:
             row = get_member(key)
     status = str((row or {}).get("status") or "pending")
@@ -172,7 +177,7 @@ def check_member_on_refresh(actor: GatewayActor) -> None:
         raise MemberPendingError("member access is waiting for administrator approval")
 
 
-def _open_request(actor: GatewayActor, key: str) -> None:
+def _open_request(actor: GatewayActor, key: str, name: str = "") -> None:
     from gateway_mcp.services.approvals import create_approval
 
     payload = {
@@ -180,7 +185,8 @@ def _open_request(actor: GatewayActor, key: str) -> None:
         "email": actor.email,
         "login": actor.login,
         "subject": actor.subject,
-        "summary": f"Новый участник просит доступ к ядру: {actor.email or actor.login or actor.subject}",
+        "name": name,
+        "summary": f"Новый участник просит доступ к ядру: {name or actor.email or actor.login or actor.subject}",
     }
     result = create_approval(
         actor=actor,

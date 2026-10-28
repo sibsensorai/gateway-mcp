@@ -17,6 +17,7 @@ from gateway_mcp.routes.admin_ui import fmt_time
 from gateway_mcp.services.admin_roles import require_current_admin
 from gateway_mcp.services import storage_skills
 from gateway_mcp.services.approvals import create_approval, decide_approval, list_visible_approvals
+from gateway_mcp.services.people import person
 from gateway_mcp.services.skill_pipeline import DEPTS, checks_summary, submit_skill
 from gateway_mcp.tools.skills import skill_summaries
 from gateway_mcp.web import login_redirect, web_actor
@@ -237,7 +238,7 @@ def _card(appr: dict) -> str:
             f'<a href="/admin/skill-requests/attachment?id={aid}">скачать</a></p>'
         )
 
-    by = escape(str(appr.get("created_by") or ""))
+    by = escape(str(payload.get("author") or person(str(appr.get("created_by") or ""))["label"]))
     created = escape(fmt_time(appr.get("created_at")))
     form = (
         '<form method="post" action="/admin/skill-requests/decide" class="sr-actions">'
